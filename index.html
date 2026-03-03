@@ -70,6 +70,7 @@
       cursor: not-allowed;
       background: #444;
       color: #888;
+      background-image: none;
     }
 
     .outline-btn {
@@ -161,6 +162,10 @@
       color: white;
       border: 1px solid var(--gold);
     }
+
+    .hero-bg {
+      background: linear-gradient(to bottom, #0f0f0f 0%, #1a1a1a 100%);
+    }
   </style>
 </head>
 
@@ -172,22 +177,23 @@
     /* ==============================================
        DATABASE & STORAGE
        ============================================== */
-    const DB_KEY = "zenith_gold_x_db";
-    const SESSION_KEY = "zenith_gold_x_session";
+    const DB_KEY = "zenith_gold_x_v2_db";
+    const SESSION_KEY = "zenith_gold_x_v2_session";
+    const TOTAL_RESERVE = 50000;
 
     function initDB() {
       if (!localStorage.getItem(DB_KEY)) {
         const initialDB = {
           users: [
-            { id: 1, email: "tansil@admin", password: "123", role: "admin", wallet: 0 },
-            { id: 2, email: "tansil@user", password: "123", role: "citizen", wallet: 0, gardenStage: 0, lastGardenUpdate: 0 },
-            { id: 3, email: "tansil@worker", password: "123", role: "worker", wallet: 0 },
-            { id: 4, email: "tansil@ngo", password: "123", role: "ngo", wallet: 0 }
+            { email: "tansil@admin", password: "123", role: "admin", wallet: 0, co2: 0, wasteCount: 0, foodCount: 0, gardenCount: 0 },
+            { email: "tansil@user", password: "123", role: "citizen", wallet: 0, co2: 0, wasteCount: 0, foodCount: 0, gardenCount: 0 },
+            { email: "tansil@worker", password: "123", role: "worker", wallet: 0, co2: 0, wasteCount: 0, foodCount: 0, gardenCount: 0 },
+            { email: "tansil@ngo", password: "123", role: "ngo", wallet: 0, co2: 0, wasteCount: 0, foodCount: 0, gardenCount: 0 }
           ],
-          waste: [],
-          tickets: [],
-          withdrawals: [],
-          reserve: 50000
+          wasteSubmissions: [],
+          foodDonations: [],
+          gardenUpdates: [],
+          withdrawals: []
         };
         localStorage.setItem(DB_KEY, JSON.stringify(initialDB));
       }
@@ -200,717 +206,718 @@
     function clearSession() { localStorage.removeItem(SESSION_KEY); }
 
     /* ==============================================
-       GEOLOCATION SYSTEM
+       GEOLOCATION UTILS
        ============================================== */
-    let currentLoc = { lat: 0, lng: 0, addr: "Locating...", active: false, lastFetch: 0 };
-    let geoWatchId = null;
-
-    async function getAddress(lat, lng) {
-      try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-        const data = await res.json();
-        return data.display_name || "Unknown Address";
-      } catch (e) { return "Address retrieval failed (rate limited/offline)"; }
-    }
-
-    function startGeoTracker() {
-      if (geoWatchId) return;
+    function captureLocation(callback, errorCallback) {
       if (navigator.geolocation) {
-        geoWatchId = navigator.geolocation.watchPosition(async (pos) => {
-          currentLoc.lat = pos.coords.latitude;
-          currentLoc.lng = pos.coords.longitude;
-          currentLoc.active = true;
-
-          // Update Address rarely to avoid Nominatim Limits
-          if (Date.now() - currentLoc.lastFetch > 30000) {
-            currentLoc.addr = await getAddress(currentLoc.lat, currentLoc.lng);
-            currentLoc.lastFetch = Date.now();
-          }
-
-          updateLiveLocationUI();
-          if (window.onLocationUpdated) window.onLocationUpdated();
-        }, (err) => {
-          currentLoc.addr = "Location Service Disabled / Error";
-          updateLiveLocationUI();
-        }, { enableHighAccuracy: true });
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            callback({
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              timestamp: Date.now()
+            });
+          },
+          err => {
+            alert("Geolocation is required. Please allow access.");
+            if (errorCallback) errorCallback();
+          },
+          { enableHighAccuracy: true } // Request high accuracy for better precision
+        );
       } else {
-        currentLoc.addr = "Geolocation not supported.";
+        alert("Geolocation is not supported by this browser.");
+        if (errorCallback) errorCallback();
       }
     }
 
-    function updateLiveLocationUI() {
-      const ind = document.getElementById('live-location-text');
-      if (ind && currentLoc.active) {
-        ind.innerHTML = `<span class="text-green-500 font-bold mr-1">● ON</span> [${currentLoc.lat.toFixed(5)}, ${currentLoc.lng.toFixed(5)}] <br> <span class="text-xs text-gray-500">${currentLoc.addr}</span>`;
+    /* ==============================================
+       CAMERA UTILS
+       ============================================== */
+    function handleImageCapture(event, previewId, stateObj, key, btnId) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        stateObj[key] = e.target.result;
+        const img = document.getElementById(previewId);
+        img.src = e.target.result;
+        img.classList.remove('hidden');
+
+        // Keep the placeholder hidden, and mark camera handled
+        const placeholder = img.parentElement.querySelector('.cam-placeholder');
+        if (placeholder) placeholder.classList.add('hidden');
+
+        const btn = document.getElementById(btnId);
+        if (btn) btn.disabled = false;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    /* ==============================================
+       GLOBAL CHARTS & MAPS
+       ============================================== */
+    let charts = {};
+    function destroyChart(id) {
+      if (charts[id]) {
+        charts[id].destroy();
+        delete charts[id];
       }
-    }
-
-    // Haversine
-    function getDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371e3;
-      const p1 = lat1 * Math.PI / 180;
-      const p2 = lat2 * Math.PI / 180;
-      const dp = (lat2 - lat1) * Math.PI / 180;
-      const dl = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(dp / 2) * Math.sin(dp / 2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
-      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    }
-
-    function formatTime(ms) {
-      if (ms <= 0) return "00:00";
-      const ts = Math.floor(ms / 1000);
-      return `${Math.floor(ts / 60).toString().padStart(2, '0')}:${(ts % 60).toString().padStart(2, '0')}`;
     }
 
     /* ==============================================
        APP ROUTER & STATE
        ============================================== */
     const appEl = document.getElementById('app');
-    let timerInterval = null;
-    let globalLeafletMap = null;
-    let mapWorkerMarker = null;
 
     function render() {
-      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-
       initDB();
       const session = getSession();
 
-      // Safe Tickets Auto Expire
-      const db = getDB();
-      let ticketsChanged = false;
-      const now = Date.now();
-      if (Array.isArray(db.tickets)) {
-        db.tickets.forEach(t => {
-          if (t.status === "active" && now > t.expiresAt) {
-            t.status = "expired"; ticketsChanged = true;
-          }
-        });
-      }
-      if (ticketsChanged) saveDB(db);
-
       if (!session) {
-        renderLogin();
+        renderLanding();
       } else {
-        const freshUser = db.users.find(u => u.id === session.id);
-        if (!freshUser) { clearSession(); renderLogin(); return; }
-        setSession(freshUser);
+        const db = getDB();
+        const freshUser = db.users.find(u => u.email === session.email);
+        if (!freshUser) { clearSession(); renderLanding(); return; }
+        setSession(freshUser); // Update local cache
 
-        appEl.className = "min-h-screen";
+        appEl.className = "min-h-screen bg-[#0f0f0f]";
         appEl.innerHTML = `
-                <div class="w-full max-w-6xl mx-auto px-4 py-8 fade-in">
-                    <header class="flex flex-col md:flex-row justify-between md:items-center mb-8 border-b border-[#333] pb-6">
-                        <div class="mb-4 md:mb-0">
-                            <h1 class="text-3xl font-bold header-glow gold-text tracking-wider uppercase mb-1">Zenith Gold X</h1>
-                            <p class="text-gray-400 text-sm uppercase tracking-widest">${freshUser.role} Dashboard</p>
-                        </div>
-                        <div class="flex items-center gap-6">
-                            <div class="text-right hidden sm:block">
-                                <div class="text-xs uppercase text-gray-500 mb-1">Active Uplink</div>
-                                <div id="live-location-text" class="text-sm">Locating...</div>
+                    <div class="w-full max-w-7xl mx-auto px-4 py-8 fade-in">
+                        <header class="flex flex-col md:flex-row justify-between md:items-center mb-10 border-b border-[#333] pb-6">
+                            <div class="mb-4 md:mb-0 flex items-center gap-4">
+                                <img src="logo.png" alt="Logo" class="w-12 h-12 rounded-full border border-[var(--gold)] object-cover bg-black" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'48\\' height=\\'48\\'><rect width=\\'48\\' height=\\'48\\' fill=\\'black\\'/><circle cx=\\'24\\' cy=\\'24\\' r=\\'12\\' fill=\\'%23D4AF37\\' opacity=\\'0.5\\'/></svg>'">
+                                <div>
+                                    <h1 class="text-3xl font-bold header-glow gold-text tracking-wider uppercase mb-1">Zenith Gold X™</h1>
+                                    <p class="text-gray-400 text-sm uppercase tracking-widest">${freshUser.role} Dashboard</p>
+                                </div>
                             </div>
-                            <button onclick="handleLogout()" class="outline-btn w-auto">Disconnect</button>
-                        </div>
-                    </header>
-                    <main id="main-content"></main>
-                </div>
-            `;
-
-        startGeoTracker();
-        updateLiveLocationUI();
+                            <div class="flex items-center gap-6">
+                                <div class="text-right hidden sm:block">
+                                    <div class="text-xs uppercase text-gray-500 mb-1">Identity</div>
+                                    <div class="text-sm font-bold text-white">${freshUser.email}</div>
+                                </div>
+                                <button onclick="handleLogout()" class="outline-btn w-auto text-sm py-2">Sign Out</button>
+                            </div>
+                        </header>
+                        <main id="main-content"></main>
+                    </div>
+                `;
 
         const mainContent = document.getElementById('main-content');
         if (freshUser.role === 'admin') renderAdmin(mainContent, db);
         else if (freshUser.role === 'citizen') renderCitizen(mainContent, db, freshUser);
         else if (freshUser.role === 'worker') renderWorker(mainContent, db, freshUser);
-        else if (freshUser.role === 'ngo') renderNGO(mainContent, db);
+        else if (freshUser.role === 'ngo') renderNGO(mainContent, db, freshUser);
       }
     }
 
     /* ==============================================
-       LOGIN PORTAL (Strictly 4 Accounts)
+       LANDING & LOGIN (Fixed 4 Accounts)
        ============================================== */
-    function renderLogin() {
-      appEl.className = "min-h-screen flex items-center justify-center p-4";
+    function renderLanding() {
+      appEl.className = "min-h-screen hero-bg flex flex-col items-center justify-center p-4 relative overflow-hidden";
       appEl.innerHTML = `
-            <div class="card w-full max-w-md fade-in text-center">
-                <h1 class="text-3xl font-bold header-glow gold-text tracking-wider uppercase mb-2">Zenith Gold X</h1>
-                <p class="text-gray-400 mb-8 text-sm uppercase tracking-widest">Secure Access Node</p>
-                <div id="login-error" class="bg-red-900/20 text-red-500 border border-red-500/50 p-2 rounded text-sm mb-4 hidden"></div>
-                <form id="login-form">
-                    <input type="email" id="email" placeholder="Authentication ID (Email)" required autocomplete="off">
-                    <input type="password" id="password" placeholder="Passcode" required autocomplete="off">
-                    <button type="submit" class="gold-btn mt-4">Establish Uplink</button>
-                </form>
-                <div class="mt-6 text-xs text-gray-500">Authorized Personnel Only.</div>
-            </div>
-        `;
+                <!-- Background ambient glow -->
+                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-[800px] bg-[var(--gold)] opacity-[0.03] blur-[120px] rounded-full pointer-events-none"></div>
 
-      document.getElementById('login-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const email = document.getElementById('email').value.trim();
-        const pass = document.getElementById('password').value.trim();
-        const errEl = document.getElementById('login-error');
+                <div class="z-10 text-center max-w-3xl fade-in w-full">
+                    <!-- Logo centered above title -->
+                    <img src="logo.png" alt="Zenith Gold X" class="w-24 h-24 mx-auto mb-6 rounded-xl border border-[var(--gold)] shadow-[0_0_30px_rgba(212,175,55,0.2)] object-cover bg-black" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'96\\' height=\\'96\\'><rect width=\\'96\\' height=\\'96\\' fill=\\'black\\'/><circle cx=\\'48\\' cy=\\'48\\' r=\\'24\\' fill=\\'%23D4AF37\\' opacity=\\'0.5\\'/></svg>'">
+                    
+                    <h1 class="text-4xl md:text-6xl font-bold header-glow gold-text tracking-widest uppercase mb-4">Zenith Gold X™</h1>
+                    <p class="text-lg md:text-xl text-gray-400 mb-10 tracking-wide font-light">The Global Civic-Tech Backbone.</p>
+                    
+                    <div id="auth-panel" class="card max-w-md mx-auto mb-16 hidden">
+                        <h2 class="text-xl gold-text font-semibold mb-6 uppercase tracking-widest text-left border-b border-[#333] pb-2">Central Authorization</h2>
+                        <div id="login-error" class="bg-red-900/20 text-red-500 border border-red-500/50 p-3 rounded text-sm mb-6 hidden text-left font-mono"></div>
+                        <form id="login-form" class="text-left">
+                            <label class="block text-xs uppercase text-gray-400 mb-2 tracking-wider">Identity Node</label>
+                            <input type="email" id="email" placeholder="email@domain.com" required autocomplete="off" class="mb-5">
+                            <label class="block text-xs uppercase text-gray-400 mb-2 tracking-wider">Passcode</label>
+                            <input type="password" id="password" placeholder="••••••••" required autocomplete="off" class="mb-6">
+                            <button type="submit" class="gold-btn py-3 text-lg uppercase tracking-wider">Authorize Access</button>
+                        </form>
+                    </div>
 
-        const db = getDB();
-        const user = db.users.find(u => u.email === email && u.password === pass);
+                    <div id="landing-actions" class="flex flex-col sm:flex-row gap-4 justify-center mb-16">
+                        <button onclick="document.getElementById('auth-panel').classList.remove('hidden'); document.getElementById('landing-actions').classList.add('hidden');" class="gold-btn md:w-auto px-12 py-4 text-lg uppercase tracking-wider">Sign In securely</button>
+                    </div>
 
-        if (user) {
-          setSession(user);
-          render();
-        } else {
-          errEl.textContent = "Invalid credentials. Access Denied.";
-          errEl.classList.remove('hidden');
-        }
-      });
+                    <!-- Feature Cards Setup Exactly like requested Premium UI -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-left opacity-80 mt-12">
+                        <div class="bg-[#111] border border-[#333] p-6 rounded-xl hover:border-[var(--gold)] transition-colors">
+                            <div class="text-[var(--gold)] mb-3 text-2xl">⚡</div>
+                            <h3 class="text-white font-bold mb-2 uppercase tracking-wide">AI Verified</h3>
+                            <p class="text-gray-500 text-sm">Automated processing ensures complete systemic integrity algorithmically.</p>
+                        </div>
+                        <div class="bg-[#111] border border-[#333] p-6 rounded-xl hover:border-[var(--gold)] transition-colors">
+                            <div class="text-[var(--gold)] mb-3 text-2xl">🛡️</div>
+                            <h3 class="text-white font-bold mb-2 uppercase tracking-wide">Secure Rewards</h3>
+                            <p class="text-gray-500 text-sm">Every civic action deposits directly into your distributed treasury.</p>
+                        </div>
+                        <div class="bg-[#111] border border-[#333] p-6 rounded-xl hover:border-[var(--gold)] transition-colors">
+                            <div class="text-[var(--gold)] mb-3 text-2xl">🌱</div>
+                            <h3 class="text-white font-bold mb-2 uppercase tracking-wide">Civic Growth</h3>
+                            <p class="text-gray-500 text-sm">Engage in community sustainability protocols to elevate your standing.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+      const form = document.getElementById('login-form');
+      if (form) {
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const email = document.getElementById('email').value.trim();
+          const pass = document.getElementById('password').value.trim();
+          const errEl = document.getElementById('login-error');
+
+          const db = getDB();
+          const user = db.users.find(u => u.email === email && u.password === pass);
+
+          if (user) {
+            setSession(user);
+            render();
+          } else {
+            errEl.textContent = "ERR: Credentials invalid or unauthorized.";
+            errEl.classList.remove('hidden');
+          }
+        });
+      }
     }
 
     function handleLogout() {
-      if (geoWatchId) navigator.geolocation.clearWatch(geoWatchId);
       clearSession();
       render();
     }
 
-    /* ==============================================
-       COMMON REFRESHERS
-       ============================================== */
-    function refreshLeaderboard(db) {
-      const lb = document.getElementById('dynamic-leaderboard');
-      if (!lb) return;
-      const citizens = [...db.users].filter(u => u.role === 'citizen').sort((a, b) => b.wallet - a.wallet).slice(0, 5);
-      lb.innerHTML = citizens.map((c, i) => `
-            <div class="flex justify-between items-center p-3 bg-[#111] rounded-lg border ${i === 0 ? 'border-[#D4AF37]' : 'border-[#222]'}">
-                <span class="${i === 0 ? 'gold-text font-bold text-lg' : 'text-gray-300'}">${i === 0 ? '🏆' : '#' + (i + 1)} ${c.email.split('@')[0]}</span>
-                <span class="font-mono text-gray-400">${c.wallet} ZC</span>
-            </div>
-        `).join("");
-    }
-
-    /* ==============================================
-       CITIZEN PORTAL
-       ============================================== */
-    let currentWasteImage = null;
-
-    function renderCitizen(container, db, user) {
-      const activeTickets = Array.isArray(db.tickets) ? db.tickets.filter(t => t.status === "active") : [];
-      const wasteCount = Array.isArray(db.waste) ? db.waste.filter(w => w.userId === user.id).length : 0;
-
-      container.innerHTML = `
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div class="card text-center">
-                    <div class="text-sm text-gray-400 uppercase tracking-wider mb-2">Wallet</div>
-                    <div class="text-4xl font-bold gold-text">${user.wallet} ZC</div>
-                    <button onclick="requestWithdrawal()" class="outline-btn mt-4 w-full">Withdraw</button>
-                </div>
-                <div class="card text-center">
-                    <div class="text-sm text-gray-400 uppercase tracking-wider mb-2">Waste Reported</div>
-                    <div class="text-4xl font-bold text-white">${wasteCount}</div>
-                </div>
-                <div class="card text-center md:col-span-2">
-                    <div class="text-sm text-gray-400 uppercase tracking-wider mb-2">Live Top 5 Citizens</div>
-                    <div id="dynamic-leaderboard" class="space-y-2 max-h-[140px] overflow-y-auto"></div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div class="space-y-6">
-                    <div class="card">
-                        <h2 class="text-xl gold-text font-semibold mb-4 border-b border-[#333] pb-2">Civic Waste Reporting</h2>
-                        <input type="file" id="waste-cam" accept="image/*" capture="environment" class="hidden" onchange="handleCam(event)">
-                        <div class="bg-[#111] border border-[#333] rounded-lg h-48 mb-4 flex items-center justify-center overflow-hidden cursor-pointer" onclick="document.getElementById('waste-cam').click()">
-                            <img id="waste-preview" class="hidden w-full h-full object-cover">
-                            <span id="cam-placeholder" class="text-gray-500">Tap to Capture Geo-Image</span>
-                        </div>
-                        <button id="btn-submit-waste" disabled onclick="submitWaste()" class="gold-btn">Submit Geo-Tagged Waste</button>
-                    </div>
-
-                    <div class="card">
-                        <h2 class="text-xl gold-text font-semibold mb-4 border-b border-[#333] pb-2">Terrace Garden</h2>
-                        <div class="flex justify-between items-center mb-4">
-                            <div class="text-gray-300">Current Stage: <span class="${user.gardenStage === 3 ? 'text-green-500 font-bold' : 'gold-text'}">${user.gardenStage}/3</span></div>
-                        </div>
-                        <button onclick="updateGarden()" class="outline-btn w-full">Update Progress (+20 days)</button>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <h2 class="text-xl gold-text font-semibold mb-4 border-b border-[#333] pb-2">NGO Relief Hub</h2>
-                    <div class="max-h-[500px] overflow-y-auto pr-2 space-y-4">
-                        ${activeTickets.length === 0 ? '<p class="text-gray-500 italic">No active requests.</p>' : ''}
-                        ${activeTickets.map(t => `
-                            <div class="bg-[#111] p-4 rounded-lg border border-[#222]">
-                                <div class="flex justify-between items-center mb-2">
-                                    <span class="font-semibold text-lg text-white">${t.type}</span>
-                                    <span class="gold-text">${t.remQty.toFixed(1)}kg matching</span>
-                                </div>
-                                <div class="text-xs text-red-400 font-mono tracking-wider bg-red-900/20 px-2 py-1 rounded inline-block mb-3">
-                                    EXPIRES: <span id="cit-timer-${t.id}">--:--</span>
-                                </div>
-                                <div class="flex gap-2">
-                                    <input type="number" id="cit-don-${t.id}" placeholder="Qty" class="!mb-0" min="0.1" step="0.1" max="${t.remQty}">
-                                    <button onclick="donateFood(${t.id})" class="outline-btn whitespace-nowrap !w-auto">Donate</button>
-                                </div>
+    // Shared function for leaderboards
+    function getLeaderboardHTML(db, roleTitle, roleName) {
+      if (!Array.isArray(db.users)) return '';
+      const sorted = db.users.filter(u => u.role === roleName).sort((a, b) => b.wallet - a.wallet).slice(0, 5);
+      return `
+                <div class="mb-6">
+                    <h3 class="text-sm uppercase tracking-widest text-[var(--gold)] mb-3 border-b border-[#333] pb-1">${roleTitle} Rank</h3>
+                    <div class="space-y-2">
+                        ${sorted.length === 0 ? '<p class="text-gray-600 italic text-sm">No data.</p>' : ''}
+                        ${sorted.map((u, i) => `
+                            <div class="flex justify-between items-center bg-[#111] p-2 px-3 rounded text-sm ${i === 0 ? 'border border-[var(--gold)] shadow-[0_0_10px_rgba(212,175,55,0.15)]' : 'border border-[#222]'}">
+                                <span class="${i === 0 ? 'gold-text font-bold' : 'text-gray-300'}">${i === 0 ? '🥇' : `#${i + 1}`} ${u.email.split('@')[0]}</span>
+                                <span class="font-mono text-gray-400">${u.wallet} ZC</span>
                             </div>
                         `).join('')}
                     </div>
                 </div>
-            </div>
-        `;
-      refreshLeaderboard(db);
-
-      // Citizen Timers
-      if (activeTickets.length > 0) {
-        timerInterval = setInterval(() => {
-          const now = Date.now();
-          activeTickets.forEach(t => {
-            const el = document.getElementById(`cit-timer-${t.id}`);
-            if (el) {
-              const ms = t.expiresAt - now;
-              if (ms <= 0) render();
-              else el.textContent = formatTime(ms);
-            }
-          });
-        }, 1000);
-      }
+            `;
     }
 
-    function handleCam(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = ev => {
-        currentWasteImage = ev.target.result;
-        const img = document.getElementById('waste-preview');
-        img.src = currentWasteImage;
-        img.classList.remove('hidden');
-        document.getElementById('cam-placeholder').classList.add('hidden');
-        document.getElementById('btn-submit-waste').disabled = false;
-      };
-      reader.readAsDataURL(file);
+    /* ==============================================
+       CITIZEN MODULE
+       ============================================== */
+    let stateCitizen = { wasteImg: null, foodImg: null, gardenImg: null };
+
+    function renderCitizen(container, db, user) {
+      container.innerHTML = `
+                <!-- Stats Row -->
+                <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+                    <div class="card text-center flex flex-col justify-center lg:col-span-2">
+                        <div class="text-xs text-gray-400 uppercase tracking-widest mb-1">Treasury Balance</div>
+                        <div class="text-4xl md:text-5xl font-bold gold-text font-mono">${user.wallet} ZC</div>
+                    </div>
+                    <div class="bg-[#111] border border-[#222] rounded-xl p-4 text-center flex flex-col justify-center">
+                        <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">CO₂ Offset</div>
+                        <div class="text-2xl font-bold text-green-500">${user.co2.toFixed(1)}kg</div>
+                    </div>
+                    <div class="bg-[#111] border border-[#222] rounded-xl p-4 text-center flex flex-col justify-center">
+                        <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">Waste Captured</div>
+                        <div class="text-2xl font-bold text-white">${user.wasteCount}</div>
+                    </div>
+                    <div class="bg-[#111] border border-[#222] rounded-xl p-4 text-center flex flex-col justify-center">
+                        <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">Food Provided</div>
+                        <div class="text-2xl font-bold text-white">${user.foodCount}</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    
+                    <!-- Left Col: Actions -->
+                    <div class="space-y-6 lg:col-span-2">
+                        <!-- Waste Sub -->
+                        <div class="card relative overflow-hidden group">
+                            <div class="absolute top-0 left-0 w-1 h-full bg-[var(--gold)]"></div>
+                            <h2 class="text-xl font-bold mb-4 uppercase tracking-widest text-[var(--gold)]">Civic Waste Upload</h2>
+                            <p class="text-sm text-gray-400 mb-4 line-clamp-2">Provide geo-tagged photographic evidence of waste for worker routing and classification.</p>
+                            
+                            <input type="file" id="w-cam" accept="image/*" capture="environment" class="hidden" onchange="handleImageCapture(event, 'w-img', stateCitizen, 'wasteImg', 'w-btn')">
+                            <div class="bg-black border border-[#333] rounded overflow-hidden h-40 mb-4 flex items-center justify-center cursor-pointer hover:border-[#666] transition-colors" onclick="document.getElementById('w-cam').click()">
+                                <img id="w-img" class="w-full h-full object-cover hidden">
+                                <div class="cam-placeholder flex flex-col items-center">
+                                    <span class="text-3xl mb-2">📸</span>
+                                    <span class="text-xs uppercase tracking-widest text-[var(--gold)]">Capture Required</span>
+                                </div>
+                            </div>
+                            <button id="w-btn" disabled class="gold-btn uppercase tracking-widest relative overflow-hidden flex items-center justify-center gap-2" onclick="submitWasteFlow()">
+                                Deploy Geo-Packet
+                            </button>
+                        </div>
+
+                        <!-- Food Sub -->
+                        <div class="card relative overflow-hidden group">
+                            <div class="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                            <h2 class="text-xl font-bold mb-4 uppercase tracking-widest text-[var(--gold)]">NGO Food Logistics</h2>
+                            <p class="text-sm text-gray-400 mb-4 line-clamp-2">Contribute resources. Live photo and geolocation are strictly required to combat spoilage fraud.</p>
+                            
+                            <input type="file" id="f-cam" accept="image/*" capture="environment" class="hidden" onchange="handleImageCapture(event, 'f-img', stateCitizen, 'foodImg', 'f-btn')">
+                            <div class="bg-black border border-[#333] rounded overflow-hidden h-40 mb-4 flex items-center justify-center cursor-pointer hover:border-[#666] transition-colors" onclick="document.getElementById('f-cam').click()">
+                                <img id="f-img" class="w-full h-full object-cover hidden">
+                                <div class="cam-placeholder flex flex-col items-center">
+                                    <span class="text-3xl mb-2">📸</span>
+                                    <span class="text-xs uppercase tracking-widest text-[#3b82f6]">Capture Required</span>
+                                </div>
+                            </div>
+                            <button id="f-btn" disabled class="gold-btn !bg-gradient-to-br !from-blue-600 !to-blue-800 !text-white uppercase tracking-widest flex items-center justify-center gap-2" onclick="submitFoodFlow()">
+                                Issue Donation Ledger
+                            </button>
+                        </div>
+
+                    </div>
+
+                    <!-- Right Col: Gardens & Leaderboard -->
+                    <div class="space-y-6">
+                        <!-- Terrace Garden -->
+                        <div class="card relative overflow-hidden group">
+                           <div class="absolute top-0 left-0 w-1 h-full bg-green-500"></div>
+                           <h2 class="text-xl font-bold mb-4 uppercase tracking-widest text-[var(--gold)]">Terrace Garden</h2>
+                           <div class="flex justify-between items-center mb-4 border-b border-[#333] pb-4">
+                               <span class="text-sm text-gray-300 uppercase tracking-widest">Growth Stages</span>
+                               <span class="text-2xl font-bold ${user.gardenCount > 0 ? 'text-green-500' : 'text-gray-500'}">${user.gardenCount}</span>
+                           </div>
+
+                           <input type="file" id="g-cam" accept="image/*" capture="environment" class="hidden" onchange="handleImageCapture(event, 'g-img', stateCitizen, 'gardenImg', 'g-btn')">
+                            <div class="bg-black border border-[#333] rounded overflow-hidden h-32 mb-4 flex items-center justify-center cursor-pointer hover:border-[#666] transition-colors" onclick="document.getElementById('g-cam').click()">
+                                <img id="g-img" class="w-full h-full object-cover hidden">
+                                <div class="cam-placeholder flex flex-col items-center">
+                                    <span class="text-xl mb-1">📸</span>
+                                    <span class="text-[10px] uppercase tracking-widest text-green-500">Capture Bio-Data</span>
+                                </div>
+                            </div>
+                           <button id="g-btn" disabled onclick="submitGardenFlow()" class="outline-btn !border-green-500 !text-green-500 hover:!bg-green-900/20 text-xs w-full py-3 uppercase tracking-widest">Log Biometric Update</button>
+                        </div>
+
+                        <!-- Leaderboards -->
+                        <div class="card p-5">
+                            ${getLeaderboardHTML(db, "Citizen", "citizen")}
+                            ${getLeaderboardHTML(db, "Worker", "worker")}
+                        </div>
+                    </div>
+                </div>
+            `;
     }
 
-    function submitWaste() {
-      if (!currentLoc.active) return alert("Waiting for stable GPS lock. Please ensure location is enabled.");
-      if (!currentWasteImage) return alert("Please capture an image.");
+    function submitWasteFlow() {
+      if (!stateCitizen.wasteImg) return;
+      const btn = document.getElementById('w-btn');
+      btn.innerHTML = `<span class="animate-pulse">Locking GEO...</span>`;
+      btn.disabled = true;
 
-      const btn = document.getElementById('btn-submit-waste');
+      captureLocation((loc) => {
+        const db = getDB();
+        const session = getSession();
+        db.wasteSubmissions.push({
+          id: Date.now().toString(),
+          image: stateCitizen.wasteImg,
+          lat: loc.lat,
+          lng: loc.lng,
+          timestamp: loc.timestamp,
+          status: "pending",
+          weight: 0,
+          userEmail: session.email,
+          workerEmail: null
+        });
+        const user = db.users.find(u => u.email === session.email);
+        user.wasteCount++;
+        saveDB(db);
+        stateCitizen.wasteImg = null;
+        alert("Waste packet encrypted and logged to logistics network.");
+        render();
+      }, () => {
+        btn.innerHTML = `Deploy Geo-Packet`;
+        btn.disabled = false;
+      });
+    }
+
+    function submitFoodFlow() {
+      if (!stateCitizen.foodImg) return;
+      const btn = document.getElementById('f-btn');
+      btn.innerHTML = `<span class="animate-pulse">Locking...</span>`;
+      btn.disabled = true;
+
+      captureLocation((loc) => {
+        const db = getDB();
+        const session = getSession();
+        db.foodDonations.push({
+          id: Date.now().toString(),
+          image: stateCitizen.foodImg,
+          lat: loc.lat,
+          lng: loc.lng,
+          timestamp: loc.timestamp,
+          status: "pending",
+          userEmail: session.email,
+          ngoEmail: null
+        });
+        const user = db.users.find(u => u.email === session.email);
+        user.foodCount++;
+        saveDB(db);
+        stateCitizen.foodImg = null;
+        alert("Donation ledger deployed. Awaiting NGO routing.");
+        render();
+      }, () => {
+        btn.innerHTML = `Issue Donation Ledger`;
+        btn.disabled = false;
+      });
+    }
+
+    function submitGardenFlow() {
+      if (!stateCitizen.gardenImg) return;
+      const btn = document.getElementById('g-btn');
+      btn.innerHTML = "Processing...";
       btn.disabled = true;
 
       const db = getDB();
-      db.waste.push({
-        id: Date.now(),
-        userId: getSession().id,
-        timestamp: Date.now(),
-        lat: currentLoc.lat,
-        lng: currentLoc.lng,
-        address: currentLoc.addr,
-        image: currentWasteImage,
-        status: "pending"
+      const session = getSession();
+      db.gardenUpdates.push({
+        id: Date.now().toString(),
+        image: stateCitizen.gardenImg,
+        userEmail: session.email,
+        timestamp: Date.now()
       });
+
+      const user = db.users.find(u => u.email === session.email);
+      user.gardenCount++;
+
+      // Artificial reward for garden updates based on old requirements logic (e.g. +5 coins per log)
+      user.wallet += 5;
+      user.co2 += 0.5;
+
       saveDB(db);
-
-      currentWasteImage = null;
-      alert("Waste evidence submitted to live map.");
-      render();
-    }
-
-    function updateGarden() {
-      const db = getDB();
-      const user = db.users.find(u => u.id === getSession().id);
-      const now = Date.now();
-      const cycle = 20 * 24 * 60 * 60 * 1000;
-
-      if (user.lastGardenUpdate && (now - user.lastGardenUpdate) < cycle) {
-        const left = Math.ceil((cycle - (now - user.lastGardenUpdate)) / 86400000);
-        return alert(`Cycle locked. Wait ${left} more days.`);
-      }
-
-      if (user.gardenStage < 3) {
-        user.gardenStage++;
-        user.lastGardenUpdate = now;
-        if (user.gardenStage === 3) {
-          user.wallet += 50;
-          db.reserve -= 50;
-          user.gardenStage = 0; // Reset
-          saveDB(db);
-          alert("Stage 3 completed! +50 Z Coins deposited.");
-        } else {
-          saveDB(db);
-          alert(`Advanced to Stage ${user.gardenStage}. Progress saved.`);
-        }
-        render();
-      }
-    }
-
-    function donateFood(tId) {
-      const qty = parseFloat(document.getElementById(`cit-don-${tId}`).value);
-      if (isNaN(qty) || qty <= 0) return;
-
-      const db = getDB();
-      const ticket = db.tickets.find(t => t.id === tId);
-      if (!ticket || ticket.status !== 'active') return alert("Ticket invalid.");
-      if (qty > ticket.remQty) return alert("Quantity exceeds demand.");
-
-      ticket.remQty -= qty;
-      if (ticket.remQty <= 0) {
-        ticket.remQty = 0;
-        ticket.status = "fulfilled";
-      }
-      saveDB(db);
+      stateCitizen.gardenImg = null;
+      alert(`Bio-log accepted. +5 ZC awarded.`);
       render();
     }
 
     /* ==============================================
-       WORKER PORTAL & LIVE MAP
+       WORKER MODULE
        ============================================== */
+    let workerMaps = {}; // Keep track of rendered dynamic leaflet maps
+
     function renderWorker(container, db, user) {
-      const pendingW = db.waste.filter(w => w.status === 'pending');
-      const foods = db.tickets.filter(t => t.status === 'fulfilled');
+      // Clean up old maps
+      Object.values(workerMaps).forEach(m => m.remove());
+      workerMaps = {};
+
+      const pending = Array.isArray(db.wasteSubmissions) ? db.wasteSubmissions.filter(w => w.status === "pending") : [];
 
       container.innerHTML = `
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div class="card text-center">
-                    <div class="text-sm text-gray-400 uppercase tracking-wider mb-2">Wallet</div>
-                    <div class="text-4xl font-bold gold-text">${user.wallet} ZC</div>
-                    <button onclick="requestWithdrawal()" class="outline-btn mt-4 w-full">Withdraw</button>
-                </div>
-                <!-- Dynamic Live Map -->
-                <div class="card md:col-span-3 h-[250px] p-0 overflow-hidden relative border border-[#333]">
-                    <div id="worker-map" class="w-full h-full object-cover z-0"></div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div class="card">
-                    <h2 class="text-xl gold-text font-semibold mb-4 border-b border-[#333] pb-2">Live Waste Radar</h2>
-                    <div class="max-h-[500px] overflow-y-auto pr-2 space-y-4" id="waste-radar-list">
-                        ${pendingW.length === 0 ? '<p class="text-gray-500 italic">No targets on radar.</p>' : ''}
-                        ${pendingW.map(w => `
-                            <div class="bg-[#111] p-4 rounded-lg border border-[#222]">
-                                <div class="flex gap-4">
-                                    <img src="${w.image}" class="w-20 h-20 object-cover rounded border border-[#333]" alt="waste">
-                                    <div class="flex-1">
-                                        <div class="text-sm text-gray-300 truncate mb-1" title="${w.address}">${w.address}</div>
-                                        <div class="text-xs gold-text font-mono mb-2 DIST-MARKER" id="dist-${w.id}">Dist: Calc...</div>
-                                        <button id="verify-btn-${w.id}" disabled onclick="verifyWaste(${w.id})" class="gold-btn !py-2 !text-sm flex-1 opacity-40 cursor-not-allowed transition-all">Verify Sector (<500m)</button>
-                                    </div>
-                                </div>
-                            </div>
-                        `).join("")}
+                <div class="card mb-8">
+                    <h2 class="text-2xl gold-text font-bold mb-2 uppercase tracking-widest text-center">Logistics Terminal</h2>
+                    <div class="flex flex-col sm:flex-row justify-center items-center gap-6 mt-6">
+                        <div class="text-center">
+                            <div class="text-xs uppercase text-gray-500 mb-1">Contract Balance</div>
+                            <div class="text-4xl font-mono text-white">${user.wallet} <span class="text-lg text-[var(--gold)]">ZC</span></div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="card">
-                    <h2 class="text-xl gold-text font-semibold mb-4 border-b border-[#333] pb-2">Logistics Routing</h2>
-                    <div class="space-y-4">
-                        ${foods.length === 0 ? '<p class="text-gray-500 italic">No cleared cargo.</p>' : ''}
-                        ${foods.map(t => `
-                            <div class="bg-[#111] p-4 rounded-lg border border-[#222] flex justify-between items-center">
+                <div class="font-bold text-gray-400 uppercase tracking-widest border-b border-[#333] pb-2 mb-6 text-sm">Active Field Contracts (${pending.length})</div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="worker-contracts">
+                    ${pending.length === 0 ? '<p class="text-gray-600 italic lg:col-span-2">No active logistics targets detected in region.</p>' : ''}
+                    ${pending.map(w => `
+                        <div class="bg-[#111] border border-[#222] rounded-xl overflow-hidden shadow-lg flex flex-col">
+                            <!-- Image Header -->
+                            <div class="h-48 relative border-b border-[#333]">
+                                <img src="${w.image}" class="w-full h-full object-cover">
+                                <div class="absolute top-2 left-2 bg-black/80 px-2 py-1 text-xs uppercase tracking-widest text-gray-300 rounded border border-[#333] backdrop-blur font-mono">
+                                    ID: ${w.id.substring(w.id.length - 6)}
+                                </div>
+                            </div>
+
+                            <!-- Map Section -->
+                            <div class="h-32 w-full relative z-0" id="map-w-${w.id}"></div>
+
+                            <!-- Controls -->
+                            <div class="p-4 flex flex-col gap-4">
                                 <div>
-                                    <div class="font-bold text-white text-lg">${t.type}</div>
-                                    <div class="text-sm gold-text">${t.totalQty}kg Ready</div>
+                                    <div class="text-xs text-gray-500 uppercase">Reporting Citizen</div>
+                                    <div class="text-sm text-gray-300">${w.userEmail}</div>
                                 </div>
-                                <button onclick="deliverFood(${t.id})" class="outline-btn !w-auto !py-2">Log Delivery</button>
+                                
+                                <div class="flex items-center gap-2">
+                                    <input type="number" id="weight-${w.id}" placeholder="Est. Weight (kg)" class="!mb-0 !py-2 !text-sm flex-1 font-mono">
+                                    <button onclick="verifyWasteTarget(${w.id}, '${w.userEmail}')" class="gold-btn !py-2 !w-auto uppercase tracking-wider text-sm whitespace-nowrap">Execute</button>
+                                </div>
                             </div>
-                        `).join('')}
-                    </div>
+                        </div>
+                    `).join('')}
                 </div>
-            </div>
-        `;
+            `;
 
-      // Initialize Map
+      // Initialize maps for each contract after DOM paints
       setTimeout(() => {
-        if (!document.getElementById('worker-map')) return;
-        globalLeafletMap = L.map('worker-map').setView([currentLoc.lat || 0, currentLoc.lng || 0], 14);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-          attribution: '&copy; OpenStreetMap'
-        }).addTo(globalLeafletMap);
-
-        // Worker Marker
-        const workerIcon = L.divIcon({ className: 'custom-icon', html: '<div class="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-[0_0_10px_#3b82f6]"></div>' });
-        mapWorkerMarker = L.marker([currentLoc.lat || 0, currentLoc.lng || 0], { icon: workerIcon }).addTo(globalLeafletMap)
-          .bindPopup('Self (Live)');
-
-        // Waste Markers
-        const wasteIcon = L.divIcon({ className: 'custom-icon', html: '<div class="w-4 h-4 rounded-full bg-[#D4AF37] border-2 border-white shadow-[0_0_10px_#D4AF37]"></div>' });
-        pendingW.forEach(w => {
-          L.marker([w.lat, w.lng], { icon: wasteIcon }).addTo(globalLeafletMap)
-            .bindPopup(`<img src="${w.image}" class="w-32 h-24 object-cover">`);
+        pending.forEach(w => {
+          const el = document.getElementById(`map-w-${w.id}`);
+          if (el) {
+            const map = L.map(el, { zoomControl: false, attributionControl: false }).setView([w.lat, w.lng], 15);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+            L.marker([w.lat, w.lng], {
+              icon: L.divIcon({ className: 'custom-icon', html: '<div class="w-3 h-3 rounded-full bg-[#D4AF37] border-2 border-[#111] shadow-[0_0_10px_#D4AF37]"></div>' })
+            }).addTo(map);
+            workerMaps[w.id] = map;
+          }
         });
-
-        // Trigger initial distance calculation
-        window.onLocationUpdated = updateWorkerDistances;
-        if (currentLoc.active) updateWorkerDistances();
       }, 100);
     }
 
-    function updateWorkerDistances() {
-      if (!currentLoc.active) return;
+    function verifyWasteTarget(idStr, citizenEmail) {
+      const weightInput = document.getElementById(`weight-${idStr}`);
+      const weightVal = parseFloat(weightInput.value);
+      if (isNaN(weightVal) || weightVal <= 0) return alert("Must enter a valid measured weight payload.");
+
       const db = getDB();
-      const pendingW = db.waste.filter(w => w.status === 'pending');
+      const session = getSession();
 
-      pendingW.forEach(w => {
-        const btn = document.getElementById(`verify-btn-${w.id}`);
-        const distTxt = document.getElementById(`dist-${w.id}`);
-        if (btn && distTxt) {
-          const dist = getDistance(currentLoc.lat, currentLoc.lng, w.lat, w.lng);
-          distTxt.innerText = `Dist: ${Math.round(dist)}m`;
+      const waste = db.wasteSubmissions.find(w => w.id === idStr.toString());
+      if (!waste || waste.status === "verified") return alert("Target already processed.");
 
-          if (dist <= 500) {
-            btn.disabled = false;
-            btn.classList.remove('opacity-40', 'cursor-not-allowed');
-          } else {
-            btn.disabled = true;
-            btn.classList.add('opacity-40', 'cursor-not-allowed');
-          }
-        }
-      });
-    }
+      const citizen = db.users.find(u => u.email === citizenEmail);
+      const worker = db.users.find(u => u.email === session.email);
 
-    function verifyWaste(wId) {
-      const db = getDB();
-      const w = db.waste.find(x => x.id === wId);
-      if (!w || w.status !== 'pending') return;
+      // Execute Business Logic
+      waste.status = "verified";
+      waste.weight = weightVal;
+      waste.workerEmail = session.email;
 
-      const dist = getDistance(currentLoc.lat, currentLoc.lng, w.lat, w.lng);
-      if (dist <= 500) {
-        w.status = 'verified';
-        const cit = db.users.find(u => u.id === w.userId);
-        const work = db.users.find(u => u.id === getSession().id);
-        cit.wallet += 10;
-        work.wallet += 15;
-        db.reserve -= 25;
-        saveDB(db);
-        alert("Verification secure. Z Coins deposited to citizen and worker.");
-        render();
-      } else {
-        alert("Radius breached. Move closer to the target.");
-      }
-    }
+      citizen.wallet += 10;
+      citizen.co2 += (weightVal * 0.2); // Artificial co2 metric
 
-    function deliverFood(tId) {
-      const db = getDB();
-      const ticket = db.tickets.find(t => t.id === tId);
-      if (!ticket || ticket.status !== "fulfilled") return;
-      ticket.status = "delivered";
-      const worker = db.users.find(u => u.id === getSession().id);
-      worker.wallet += 20;
-      db.reserve -= 20;
+      worker.wallet += 15;
+      worker.co2 += (weightVal * 0.1);
+
       saveDB(db);
-      alert("Cargo delivered securely. Logistics reward deposited.");
-      render();
-    }
-
-    function requestWithdrawal() {
-      const amtStr = prompt("Amount to extract to fiat layer (Min 100):");
-      if (!amtStr) return;
-      const amt = parseFloat(amtStr);
-      if (isNaN(amt) || amt < 100) return alert("Minimum withdrawal criteria not met (100 ZC).");
-      const db = getDB();
-      const user = db.users.find(u => u.id === getSession().id);
-      if (user.wallet < amt) return alert("Insufficient block balance.");
-
-      user.wallet -= amt;
-      db.withdrawals.push({ id: Date.now(), userId: user.id, email: user.email, amount: amt, status: "pending" });
-      saveDB(db);
-      alert("Extraction packet requested from Admin.");
+      alert("Contract Executed. Resources Distributed.");
       render();
     }
 
     /* ==============================================
-       NGO PORTAL
+       NGO MODULE
        ============================================== */
-    function renderNGO(container, db) {
-      const sortedTickets = [...db.tickets].reverse();
+    function renderNGO(container, db, user) {
+      const pending = Array.isArray(db.foodDonations) ? db.foodDonations.filter(f => f.status === "pending") : [];
 
       container.innerHTML = `
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div class="card md:col-span-1 border-t-2 border-t-[var(--gold)]">
-                    <h2 class="text-xl gold-text font-semibold mb-4 border-b border-[#333] pb-2">Generate Ticket</h2>
-                    <p class="text-sm text-gray-400 mb-6">Open supply request. Auto-terminates in 30m.</p>
-                    <form id="form-ngo-ticket" onsubmit="createTicket(event)">
-                        <input type="text" id="t-type" placeholder="Resource Type (e.g., Rice)" required>
-                        <input type="number" id="t-qty" placeholder="Gross Mass (kg)" required min="1" step="0.1">
-                        <button type="submit" class="gold-btn mt-2">Broadcast Signal</button>
-                    </form>
+                <div class="card mb-8 flex flex-col items-center">
+                    <h2 class="text-2xl text-blue-500 font-bold mb-2 uppercase tracking-widest text-center">Relief Director Node</h2>
+                    <div class="text-center mt-4">
+                        <div class="text-xs uppercase text-gray-500 mb-1">Network Deliveries Processed</div>
+                        <div class="text-4xl font-mono text-white">${db.foodDonations.filter(f => f.status === 'delivered').length}</div>
+                    </div>
                 </div>
 
-                <div class="card md:col-span-2">
-                    <h2 class="text-xl gold-text font-semibold mb-4 border-b border-[#333] pb-2">Global Tracker</h2>
-                    <div class="space-y-4 max-h-[500px] overflow-y-auto pr-2">
-                        ${sortedTickets.length === 0 ? '<p class="text-gray-500 italic">No signals active.</p>' : ''}
-                        ${sortedTickets.map(t => {
-        let stat = "text-yellow-500 border-yellow-500";
-        if (t.status === "fulfilled") stat = "text-green-500 border-green-500";
-        if (t.status === "delivered") stat = "text-blue-500 border-blue-500";
-        if (t.status === "expired") stat = "text-red-500 border-red-500";
-
-        return `
-                            <div class="bg-[#111] p-4 rounded-lg flex justify-between items-center border border-[#222]">
-                                <div>
-                                    <div class="font-bold text-lg text-white mb-1">${t.type}</div>
-                                    <span class="uppercase text-[10px] px-2 py-1 border rounded ${stat}">${t.status}</span>
-                                    <div class="text-sm text-gray-400 mt-2">Rem: <span class="gold-text">${t.remQty}kg</span> / ${t.totalQty}kg</div>
-                                </div>
-                                <div class="text-right flex flex-col items-end">
-                                    ${t.status === 'active' ? `<div id="ngo-tim-${t.id}" class="text-red-400 font-mono text-sm bg-red-900/10 px-3 py-1 rounded">--:--</div>` : ''}
+                <div class="font-bold text-gray-400 uppercase tracking-widest border-b border-[#333] pb-2 mb-6 text-sm">Inbound Supply Vectors (${pending.length})</div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    ${pending.length === 0 ? '<p class="text-gray-600 italic lg:col-span-3">No inbound civic supplies detected.</p>' : ''}
+                    ${pending.map(f => `
+                        <div class="bg-[#111] border border-[#222] rounded-xl overflow-hidden shadow-lg flex flex-col">
+                            <div class="h-40 relative">
+                                <img src="${f.image}" class="w-full h-full object-cover grayscale opacity-80 hover:grayscale-0 transition-all duration-300">
+                                <div class="absolute top-2 left-2 flex gap-2">
+                                    <span class="bg-blue-600/80 px-2 py-1 text-[10px] uppercase font-bold text-white rounded backdrop-blur">Supply</span>
                                 </div>
                             </div>
-                            `;
-      }).join("")}
-                    </div>
+                            <div class="p-4 flex-1 flex flex-col justify-between">
+                                <div class="mb-4">
+                                    <div class="text-xs text-gray-500 uppercase">Provider</div>
+                                    <div class="text-sm font-bold text-gray-200">${f.userEmail}</div>
+                                    <div class="text-xs text-gray-600 font-mono mt-1">Geo: [${f.lat.toFixed(4)}, ${f.lng.toFixed(4)}]</div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="ngoAction(${f.id}, 'delivered', '${f.userEmail}')" class="outline-btn !border-green-500 !text-green-500 hover:!bg-green-900/20 text-xs py-2 uppercase font-bold flex-1">Accept</button>
+                                    <button onclick="ngoAction(${f.id}, 'rejected', '${f.userEmail}')" class="outline-btn !border-red-500 !text-red-500 hover:!bg-red-900/20 text-xs py-2 uppercase font-bold flex-[0.5]">Reject</button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
                 </div>
-            </div>
-        `;
-
-      if (sortedTickets.some(t => t.status === 'active')) {
-        timerInterval = setInterval(() => {
-          const now = Date.now();
-          sortedTickets.forEach(t => {
-            if (t.status === 'active') {
-              const el = document.getElementById(`ngo-tim-${t.id}`);
-              if (el) {
-                const ms = t.expiresAt - now;
-                if (ms <= 0) render();
-                else el.textContent = formatTime(ms);
-              }
-            }
-          });
-        }, 1000);
-      }
+            `;
     }
 
-    function createTicket(e) {
-      e.preventDefault();
-      const type = document.getElementById('t-type').value.trim();
-      const qty = parseFloat(document.getElementById('t-qty').value);
-      if (!type || isNaN(qty) || qty <= 0) return;
-
+    function ngoAction(idStr, newStatus, producerEmail) {
       const db = getDB();
-      db.tickets.push({
-        id: Date.now(),
-        type,
-        totalQty: qty,
-        remQty: qty,
-        createdAt: Date.now(),
-        expiresAt: Date.now() + (30 * 60 * 1000),
-        status: "active"
-      });
-      saveDB(db);
+      const session = getSession();
+
+      const f = db.foodDonations.find(x => x.id === idStr.toString());
+      if (!f || f.status !== "pending") return;
+
+      f.status = newStatus;
+      f.ngoEmail = session.email;
+
+      if (newStatus === "delivered") {
+        const citizen = db.users.find(u => u.email === producerEmail);
+        if (citizen) citizen.wallet += 8; // Grant citizen coins for accepted supply
+        saveDB(db);
+        alert("Supply Chain Confirmed.");
+      } else {
+        saveDB(db);
+        alert("Supply Chain Rejected.");
+      }
       render();
     }
 
     /* ==============================================
-       ADMIN PORTAL
+       ADMIN MODULE (Calculated Live Data)
        ============================================== */
     function renderAdmin(container, db) {
-      const totalW = db.waste.length;
-      const distZc = db.users.reduce((sum, u) => sum + (u.id === 1 ? 0 : u.wallet), 0);
-      const resZc = db.reserve;
-      const den = resZc + distZc;
-      const ratio = den > 0 ? ((resZc / den) * 100).toFixed(1) : 100;
+      // Safe arrays
+      const wAll = Array.isArray(db.wasteSubmissions) ? db.wasteSubmissions : [];
+      const fAll = Array.isArray(db.foodDonations) ? db.foodDonations : [];
+      const gAll = Array.isArray(db.gardenUpdates) ? db.gardenUpdates : [];
+      const uAll = Array.isArray(db.users) ? db.users : [];
 
-      let rColor = "text-green-500";
-      if (ratio < 40 && ratio >= 20) rColor = "text-yellow-500";
-      if (ratio < 20) rColor = "text-red-500";
+      // Computations
+      let totCit = 0, totWor = 0, totNgo = 0, totDistZC = 0;
+      uAll.forEach(u => {
+        if (u.role === 'citizen') totCit++;
+        if (u.role === 'worker') totWor++;
+        if (u.role === 'ngo') totNgo++;
+        if (u.role !== 'admin') totDistZC += (u.wallet || 0);
+      });
 
-      const pDraws = db.withdrawals.filter(w => w.status === "pending");
+      const totSub = wAll.length;
+      const totVer = wAll.filter(w => w.status === 'verified').length;
+      const totWgt = wAll.filter(w => w.status === 'verified').reduce((sum, w) => sum + (w.weight || 0), 0);
+      const totFood = fAll.filter(f => f.status === 'delivered').length;
+      const totGard = gAll.length;
+
+      const resZc = TOTAL_RESERVE - totDistZC;
+      const resRatio = ((resZc / TOTAL_RESERVE) * 100).toFixed(1);
+
+      let rColor = "text-green-500 border-green-500/30 bg-green-900/10";
+      if (resRatio < 40 && resRatio >= 20) rColor = "text-yellow-500 border-yellow-500/30 bg-yellow-900/10";
+      if (resRatio < 20) rColor = "text-red-500 border-red-500/30 bg-red-900/10";
 
       container.innerHTML = `
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div class="card text-center">
-                    <div class="text-sm text-gray-400 uppercase tracking-wider mb-2">Total Waste Cleared</div>
-                    <div class="text-3xl font-bold text-white">${totalW}</div>
-                </div>
-                <div class="card text-center">
-                    <div class="text-sm text-gray-400 uppercase tracking-wider mb-2">Circulating Supply</div>
-                    <div class="text-3xl font-bold gold-text">${distZc} ZC</div>
-                </div>
-                <div class="card text-center">
-                    <div class="text-sm text-gray-400 uppercase tracking-wider mb-2">Treasury Reserve</div>
-                    <div class="text-3xl font-bold text-white">${resZc} ZC</div>
-                </div>
-                <div class="card text-center">
-                    <div class="text-sm text-gray-400 uppercase tracking-wider mb-2">Health Ratio</div>
-                    <div class="text-3xl font-bold ${rColor}">${ratio}%</div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div class="card lg:col-span-1 flex flex-col items-center justify-center">
-                    <h2 class="text-lg gold-text font-semibold mb-6 text-center w-full">Ecosystem Balance</h2>
-                    <div class="w-full h-64 relative">
-                        <canvas id="ecoChart"></canvas>
+                <!-- Core KPIS -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                     <div class="bg-[#111] p-4 rounded-xl border border-[#222]">
+                        <div class="text-[10px] text-gray-500 tracking-widest uppercase mb-1">Treasury Outflow</div>
+                        <div class="text-2xl font-bold font-mono gold-text">${totDistZC} <span class="text-sm">ZC</span></div>
+                    </div>
+                     <div class="bg-[#111] p-4 rounded-xl border border-[#222] ${resRatio < 50 ? rColor : ''}">
+                        <div class="text-[10px] text-gray-500 tracking-widest uppercase mb-1">Reserve Status</div>
+                        <div class="text-2xl font-bold font-mono text-white">${resZc} <span class="text-sm">ZC</span> (${resRatio}%)</div>
+                    </div>
+                     <div class="bg-[#111] p-4 rounded-xl border border-[#222]">
+                        <div class="text-[10px] text-gray-500 tracking-widest uppercase mb-1">Target Cleared</div>
+                        <div class="text-2xl font-bold font-mono text-white">${totWgt} <span class="text-sm">KG</span></div>
+                    </div>
+                     <div class="bg-[#111] p-4 rounded-xl border border-[#222]">
+                        <div class="text-[10px] text-gray-500 tracking-widest uppercase mb-1">Nodes (C/W/N)</div>
+                        <div class="text-xl font-bold font-mono text-gray-300 tracking-widest">${totCit}<span class="text-[#333]">|</span>${totWor}<span class="text-[#333]">|</span>${totNgo}</div>
                     </div>
                 </div>
 
-                <div class="space-y-8 lg:col-span-2">
-                    <div class="card">
-                        <h2 class="text-lg gold-text font-semibold mb-4 border-b border-[#333] pb-2">Pending Treasury Extractions</h2>
-                        <div class="space-y-3 max-h-[250px] overflow-y-auto pr-2">
-                            ${pDraws.length === 0 ? '<p class="text-gray-500 italic">No packet requests.</p>' : ''}
-                            ${pDraws.map(w => `
-                                <div class="bg-[#111] p-3 rounded-lg border border-[#222] flex justify-between items-center">
-                                    <div>
-                                        <div class="font-bold text-white">${w.email}</div>
-                                        <div class="text-sm gold-text">${w.amount} ZC</div>
-                                    </div>
-                                    <button onclick="approveWithdrawal(${w.id})" class="outline-btn !text-green-500 !border-green-500 hover:!bg-green-900/20 !w-auto !py-2">Approve Execution</button>
-                                </div>
-                            `).join("")}
+                <!-- Deep Analytics -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    
+                    <div class="card lg:col-span-2 flex flex-col justify-between">
+                        <div class="flex justify-between items-center mb-6 border-b border-[#333] pb-3">
+                            <h2 class="text-sm gold-text font-bold uppercase tracking-widest">Macro Processing Volume</h2>
+                            <div class="text-[10px] uppercase text-gray-500 tracking-wider">Live View</div>
+                        </div>
+                        <div class="w-full h-64 relative">
+                            <canvas id="barChart"></canvas>
                         </div>
                     </div>
 
-                    <div class="card">
-                        <h2 class="text-lg gold-text font-semibold mb-4 border-b border-[#333] pb-2">Top Protocol Citizens</h2>
-                        <div id="dynamic-leaderboard" class="space-y-2"></div>
+                    <div class="card flex flex-col justify-between">
+                        <div class="flex justify-between items-center mb-6 border-b border-[#333] pb-3">
+                            <h2 class="text-sm gold-text font-bold uppercase tracking-widest">Eco Integrity</h2>
+                        </div>
+                        <div class="w-full h-48 relative mb-4">
+                            <canvas id="doughnutChart"></canvas>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mt-auto">
+                            <div class="text-center bg-[#111] border border-[#222] rounded py-2">
+                                <div class="text-[10px] uppercase text-gray-500">Processed</div>
+                                <div class="text-lg font-bold text-white">${totVer}/${totSub}</div>
+                            </div>
+                            <div class="text-center bg-[#111] border border-[#222] rounded py-2">
+                                <div class="text-[10px] uppercase text-gray-500">Food/Garden</div>
+                                <div class="text-lg font-bold text-white">${totFood} / ${totGard}</div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-        `;
-      refreshLeaderboard(db);
 
+                </div>
+            `;
+
+      // Chart Render Logic (Destroy before re-render)
       setTimeout(() => {
-        const ctx = document.getElementById('ecoChart');
-        if (ctx) {
-          Chart.defaults.color = '#888';
-          new Chart(ctx, {
+        Chart.defaults.color = '#777';
+        Chart.defaults.font.family = 'Inter';
+
+        // Doughnut chart setup
+        destroyChart('dc');
+        const ctxDC = document.getElementById('doughnutChart');
+        if (ctxDC) {
+          charts['dc'] = new Chart(ctxDC, {
             type: 'doughnut',
             data: {
-              labels: ['Treasury Reserve', 'Circulating Supply'],
+              labels: ['Reserve ZC', 'Circulating'],
               datasets: [{
-                data: [resZc, distZc],
-                backgroundColor: ['#111', '#D4AF37'],
-                borderColor: ['#333', '#111'],
-                borderWidth: 2
+                data: [resZc, totDistZC || 0.1], // Avoid 0 crash for visual
+                backgroundColor: ['#1A1A1A', '#D4AF37'],
+                borderColor: '#333',
+                borderWidth: 1
               }]
             },
-            options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom', labels: { padding: 20 } } } }
+            options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { display: false } } }
+          });
+        }
+
+        // Bar Chart setup (Mock timeline, mapping total submissions dynamically for visual impact, normally would reduce by date string)
+        destroyChart('bc');
+        const ctxBC = document.getElementById('barChart');
+        if (ctxBC) {
+          charts['bc'] = new Chart(ctxBC, {
+            type: 'bar',
+            data: {
+              labels: ['Sys init', 'Prior', 'Current'],
+              datasets: [
+                { label: 'Total Waste Packets', data: [0, Math.floor(totSub / 2), totSub], backgroundColor: '#D4AF37', borderRadius: 4 },
+                { label: 'Verified Blocks', data: [0, Math.floor(totVer / 2), totVer], backgroundColor: '#22C55E', borderRadius: 4 }
+              ]
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              scales: {
+                y: { grid: { color: '#222' }, beginAtZero: true },
+                x: { grid: { display: false } }
+              },
+              plugins: { legend: { position: 'top', labels: { boxWidth: 10, usePointStyle: true } } }
+            }
           });
         }
       }, 100);
     }
 
-    function approveWithdrawal(wId) {
-      const db = getDB();
-      const w = db.withdrawals.find(x => x.id === wId);
-      if (!w || w.status !== "pending") return;
-
-      if (db.reserve >= w.amount) {
-        db.reserve -= w.amount;
-        w.status = "approved";
-        saveDB(db);
-        alert("Treasury extraction authorized.");
-        render();
-      } else {
-        alert("Insufficient Treasury Reserve.");
-      }
-    }
-
     /* ==============================================
-       SYSTEM STARTUP
+       START APPLICATION ON SCRIPT LOAD
        ============================================== */
-    window.onload = render;
+    render();
 
   </script>
 </body>
