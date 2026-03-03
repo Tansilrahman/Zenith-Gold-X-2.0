@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Zenith Gold X™</title>
+  <title>Zenith Gold X™ - Enterprise SPA</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Chart.js -->
@@ -12,8 +12,6 @@
   <!-- Leaflet OS Map -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- Inter Font -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 
   <style>
     :root {
@@ -26,52 +24,92 @@
     body {
       background-color: var(--bg);
       color: #ffffff;
-      font-family: 'Inter', sans-serif;
+      font-family: system-ui, -apple-system, sans-serif;
       margin: 0;
       padding: 0;
       min-height: 100vh;
       overflow-x: hidden;
     }
 
+    /* --- GPU ANIMATIONS & EFFECTS --- */
+    @keyframes customGlow {
+      0% {
+        transform: scale(1) translate(0px, 0px);
+        opacity: 0.15;
+      }
+
+      33% {
+        transform: scale(1.05) translate(30px, -20px);
+        opacity: 0.2;
+      }
+
+      66% {
+        transform: scale(0.95) translate(-20px, 20px);
+        opacity: 0.1;
+      }
+
+      100% {
+        transform: scale(1) translate(0px, 0px);
+        opacity: 0.15;
+      }
+    }
+
+    .animate-glow {
+      animation: customGlow 20s infinite ease-in-out;
+      will-change: transform, opacity;
+    }
+
+    @keyframes floatUp {
+      0% {
+        transform: translateY(100vh) rotate(0deg);
+        opacity: 0;
+      }
+
+      10% {
+        opacity: 0.8;
+      }
+
+      90% {
+        opacity: 0.8;
+      }
+
+      100% {
+        transform: translateY(-100px) rotate(360deg);
+        opacity: 0;
+      }
+    }
+
+    .particle {
+      position: absolute;
+      background: linear-gradient(135deg, var(--gold), transparent);
+      border-radius: 50%;
+      pointer-events: none;
+      will-change: transform;
+    }
+
+    .shimmer-text {
+      background: linear-gradient(90deg, #D4AF37 0%, #fff 50%, #D4AF37 100%);
+      background-size: 200% auto;
+      color: transparent;
+      -webkit-background-clip: text;
+      background-clip: text;
+      animation: textShimmer 3s linear infinite;
+    }
+
+    @keyframes textShimmer {
+      to {
+        background-position: 200% center;
+      }
+    }
+
+    /* --- UI COMPONENTS --- */
     .card {
       background-color: var(--card);
       border: 1px solid rgba(212, 175, 55, 0.15);
       border-radius: 12px;
       padding: 24px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
       position: relative;
-      overflow: hidden;
-    }
-
-    .card::after {
-      content: '';
-      position: absolute;
-      top: -20px;
-      right: -20px;
-      width: 200px;
-      height: 200px;
-      background-image: url('logo.png');
-      background-size: contain;
-      background-repeat: no-repeat;
-      opacity: 0.04;
-      pointer-events: none;
-      filter: contrast(120%) drop-shadow(0 0 10px rgba(212, 175, 55, 0.5));
-      z-index: 0;
-    }
-
-    .card>* {
-      position: relative;
-      z-index: 1;
-    }
-
-    .card:hover {
-      box-shadow: 0 8px 30px rgba(212, 175, 55, 0.1);
-      transform: translateY(-2px);
-    }
-
-    .gold-text {
-      color: var(--gold);
     }
 
     .gold-btn {
@@ -80,18 +118,16 @@
       font-weight: 600;
       padding: 12px 24px;
       border-radius: 8px;
-      transition: opacity 0.2s, transform 0.1s;
       border: none;
       cursor: pointer;
       width: 100%;
+      transition: all 0.2s ease;
     }
 
-    .gold-btn:hover {
+    .gold-btn:hover:not(:disabled) {
       opacity: 0.9;
-    }
-
-    .gold-btn:active {
-      transform: scale(0.98);
+      box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+      transform: translateY(-1px);
     }
 
     .gold-btn:disabled {
@@ -99,32 +135,29 @@
       cursor: not-allowed;
       background: #444;
       color: #888;
-      background-image: none;
-      transform: none;
     }
 
     .outline-btn {
       border: 1px solid var(--gold);
       color: var(--gold);
-      background: rgba(212, 175, 55, 0.05);
-      padding: 8px 16px;
+      background: transparent;
+      padding: 12px 24px;
       border-radius: 8px;
-      transition: background 0.2s;
-      font-size: 0.875rem;
-      width: 100%;
       cursor: pointer;
+      width: 100%;
+      transition: all 0.2s ease;
     }
 
-    .outline-btn:hover {
-      background: rgba(212, 175, 55, 0.15);
+    .outline-btn:hover:not(:disabled) {
+      background: rgba(212, 175, 55, 0.1);
+      box-shadow: 0 0 10px rgba(212, 175, 55, 0.2);
     }
 
     .outline-btn:disabled {
       opacity: 0.4;
       cursor: not-allowed;
-      border-color: #444;
-      color: #888;
-      background: transparent;
+      border-color: #555;
+      color: #777;
     }
 
     input,
@@ -143,916 +176,829 @@
     input:focus,
     select:focus {
       border-color: var(--gold);
-      box-shadow: 0 0 8px rgba(212, 175, 55, 0.2);
     }
 
-    .fade-in {
-      animation: fadeIn 0.4s ease-out forwards;
-    }
-
-    .fade-out {
-      animation: fadeOut 0.3s ease-in forwards;
-    }
-
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes fadeOut {
-      from {
-        opacity: 1;
-        transform: translateY(0);
-      }
-
-      to {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-    }
-
-    .header-glow {
-      text-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
-    }
-
-    .logo-glow {
-      box-shadow: 0 0 40px rgba(212, 175, 55, 0.25);
-      border: 1px solid rgba(212, 175, 55, 0.5);
-    }
-
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: #111;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #333;
-      border-radius: 3px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--gold);
-    }
-
-    .leaflet-container {
-      z-index: 1;
-      background: #111;
-      border-radius: 8px;
-      border: 1px solid #333;
-    }
-
-    .leaflet-popup-content-wrapper,
-    .leaflet-popup-tip {
-      background: #1a1a1a;
-      color: white;
-      border: 1px solid var(--gold);
-    }
-
-    .hero-bg {
-      background: radial-gradient(circle at center, #1a1a1a 0%, #0f0f0f 70%);
-    }
-
-    .watermark-float {
-      animation: float 20s ease-in-out infinite;
-    }
-
-    @keyframes float {
-      0% {
-        transform: translateY(0px) scale(1);
-      }
-
-      50% {
-        transform: translateY(-30px) scale(1.05);
-      }
-
-      100% {
-        transform: translateY(0px) scale(1);
-      }
-    }
-
-    /* View switching logic */
-    .spa-view {
+    .mod-section {
       display: none;
     }
 
-    .spa-view.active {
-      display: block;
+    .leaflet-container {
+      background: #111;
+      border-radius: 8px;
+      border: 1px solid #333;
+      z-index: 1;
+    }
+
+    .fade-in {
+      animation: smoothFade 0.5s ease-out forwards;
+    }
+
+    @keyframes smoothFade {
+      from {
+        opacity: 0;
+        transform: translateY(5px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
   </style>
 </head>
 
-<body>
+<body class="bg-black text-white m-0 p-0 overflow-x-hidden">
 
-  <!-- Global Faint Watermark -->
-  <div
-    class="fixed inset-0 z-0 flex items-center justify-center opacity-[0.03] pointer-events-none mix-blend-screen overflow-hidden">
-    <img src="logo.png" alt="watermark" class="w-[800px] h-[800px] object-cover grayscale watermark-float"
-      onerror="this.style.display='none'">
+  <!-- PREMIUM BACKGROUND -->
+  <div class="fixed inset-0 -z-10 overflow-hidden">
+    <!-- Glow Orbs -->
+    <div
+      class="absolute w-[900px] h-[900px] bg-yellow-500/10 rounded-full blur-[140px] animate-glow top-[-200px] left-[-200px]">
+    </div>
+    <div
+      class="absolute w-[800px] h-[800px] bg-yellow-500/10 rounded-full blur-[130px] animate-glow bottom-[-200px] right-[-200px]"
+      style="animation-delay: -10s;"></div>
+
+    <!-- CSS Floating Particles -->
+    <div class="absolute inset-0 pointer-events-none" id="particles-wrap">
+      <div class="particle w-2 h-2 left-[10%]" style="animation: floatUp 15s infinite linear; animation-delay: 0s;">
+      </div>
+      <div class="particle w-3 h-3 left-[25%]" style="animation: floatUp 25s infinite linear; animation-delay: 5s;">
+      </div>
+      <div class="particle w-1.5 h-1.5 left-[40%]" style="animation: floatUp 18s infinite linear; animation-delay: 2s;">
+      </div>
+      <div class="particle w-2.5 h-2.5 left-[60%]" style="animation: floatUp 22s infinite linear; animation-delay: 8s;">
+      </div>
+      <div class="particle w-2 h-2 left-[75%]" style="animation: floatUp 16s infinite linear; animation-delay: 1s;">
+      </div>
+      <div class="particle w-3 h-3 left-[85%]" style="animation: floatUp 20s infinite linear; animation-delay: 6s;">
+      </div>
+      <div class="particle w-1 h-1 left-[95%]" style="animation: floatUp 14s infinite linear; animation-delay: 3s;">
+      </div>
+      <div class="particle w-2 h-2 left-[5%]" style="animation: floatUp 26s infinite linear; animation-delay: 11s;">
+      </div>
+      <div class="particle w-3 h-3 left-[35%]" style="animation: floatUp 19s infinite linear; animation-delay: 4s;">
+      </div>
+      <div class="particle w-1.5 h-1.5 left-[50%]" style="animation: floatUp 21s infinite linear; animation-delay: 9s;">
+      </div>
+    </div>
   </div>
 
-  <div id="app" class="relative z-10 w-full max-w-7xl mx-auto px-4 py-8">
+  <!-- LOGIN VIEW -->
+  <div id="loginView" class="fixed inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm z-50">
+    <div
+      class="w-full max-w-md bg-[#1a1a1a] p-8 rounded-2xl shadow-2xl border border-yellow-500/30 text-center fade-in">
+      <img src="logo.png" alt="Logo"
+        class="w-24 h-24 mx-auto mb-4 rounded-full border border-yellow-500/50 object-cover bg-black shadow-[0_0_30px_rgba(212,175,55,0.2)]"
+        onerror="this.style.display='none'">
+      <h1 class="text-2xl font-bold uppercase tracking-widest shimmer-text mb-2">Gold X Secure Access</h1>
+      <p class="text-[10px] text-gray-400 mb-8 tracking-widest uppercase pb-4 border-b border-[#333]">Redefining Civic
+        Action Through Verified Intelligence</p>
 
-    <!-- GLOBAL APP HEADER (Hidden on Landing) -->
-    <header id="app-header"
-      class="hidden flex-col md:flex-row justify-between md:items-center mb-10 border-b border-[#333] pb-6 fade-in">
-      <div class="mb-4 md:mb-0 flex items-center gap-4">
-        <img src="logo.png" alt="Logo" class="w-12 h-12 rounded-full border border-[var(--gold)] object-cover bg-black"
+      <div id="login-error"
+        class="hidden text-red-500 bg-red-900/20 border border-red-500/50 p-2 rounded text-sm mb-4 font-mono"></div>
+
+      <form onsubmit="event.preventDefault(); Engine.login();">
+        <input type="email" id="loginEmail" placeholder="Identity Node (email)" required autocomplete="off"
+          class="text-center font-mono">
+        <input type="password" id="loginPass" placeholder="Passcode" required autocomplete="off"
+          class="text-center font-mono">
+        <button type="submit" class="gold-btn uppercase tracking-widest mt-2 py-3 text-sm">Authorize Session</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN APP VIEW -->
+  <div id="appView" class="hidden min-h-screen w-full relative z-10 flex flex-col">
+
+    <!-- NAVBAR -->
+    <div class="w-full bg-[#111]/80 backdrop-blur-md p-4 flex justify-between items-center border-b border-[#333]">
+      <div class="flex items-center gap-4">
+        <img src="logo.png" alt="Logo"
+          class="w-10 h-10 rounded-full border border-[var(--gold)] object-cover bg-black hidden sm:block"
           onerror="this.style.display='none'">
         <div>
-          <h1 class="text-3xl font-bold header-glow gold-text tracking-wider uppercase mb-1">Zenith Gold X™</h1>
-          <p id="header-role" class="text-gray-400 text-sm uppercase tracking-widest">Dashboard</p>
+          <div class="text-yellow-400 font-bold uppercase tracking-widest text-lg shimmer-text">ZENITH GOLD X™</div>
+          <div id="header-role" class="text-[10px] text-gray-500 uppercase tracking-widest">---</div>
         </div>
       </div>
-      <div class="flex items-center gap-6">
+      <div class="flex items-center gap-4">
         <div class="text-right hidden sm:block">
-          <div class="text-xs uppercase text-gray-500 mb-1">Identity Node</div>
-          <div id="header-email" class="text-sm font-bold text-white">---</div>
+          <div class="text-[10px] text-gray-400 uppercase">Active Node</div>
+          <div id="header-email" class="text-sm font-bold text-white font-mono">---</div>
         </div>
-        <button onclick="AppEngine.logout()" class="outline-btn w-auto text-sm py-2">Disconnect</button>
+        <button onclick="Engine.logout()"
+          class="outline-btn !py-2 !px-4 text-xs tracking-widest uppercase !w-auto !border-red-500/50 !text-red-400 hover:!bg-red-500/10 hover:!border-red-500">Logout</button>
       </div>
-    </header>
+    </div>
 
-    <!-- VIEW: LANDING -->
-    <main id="view-landing"
-      class="spa-view active min-h-[80vh] flex flex-col items-center justify-center hero-bg rounded-2xl relative overflow-hidden border border-[#222]">
+    <!-- GLOBAL TICKETS BANNER -->
+    <div id="ticket-banner" class="w-full bg-blue-900/20 border-b border-blue-500/30 hidden"></div>
+
+    <!-- DASHBOARD CONTAINER -->
+    <div id="dashboardContent" class="w-full p-6 transition-opacity duration-500 flex-1"></div>
+
+  </div>
+
+  <!-- NGO DONATION MODAL -->
+  <div id="donateModal" class="fixed inset-0 flex items-center justify-center bg-black/90 z-[60] hidden">
+    <div class="w-full max-w-md card mx-4 text-center border-blue-500/50">
+      <h3 class="text-lg text-blue-400 font-bold mb-4 uppercase tracking-widest border-b border-[#333] pb-2">Issue Food
+        Donation</h3>
+      <p id="modal-ticket-info" class="text-xs mb-4 text-gray-300 font-mono"></p>
+      <input type="hidden" id="modal-ticket-id">
+      <input type="number" id="modal-qty" placeholder="Quantity Supplying (kg/items)" min="1"
+        class="text-center font-mono">
+
+      <input type="file" id="modal-file" accept="image/*" class="hidden" onchange="Engine.handleModalImage(this)">
       <div
-        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-[600px] bg-[var(--gold)] opacity-[0.04] blur-[100px] rounded-full pointer-events-none">
-      </div>
-
-      <div class="z-10 text-center max-w-3xl fade-in w-full px-4">
-        <img src="logo.png" alt="Zenith Gold X" class="logo-glow w-44 mx-auto mb-8 rounded-xl object-cover bg-black"
-          onerror="this.style.display='none'">
-
-        <h1 class="text-4xl md:text-6xl font-bold header-glow gold-text tracking-widest uppercase mb-4">Zenith Gold X™
-        </h1>
-        <p class="text-sm md:text-lg text-gray-400 mb-10 tracking-wide font-light max-w-2xl mx-auto">The Enterprise
-          Civic-Tech Backbone. Verified by AI, Built on Protocol, Secured by Distributed Action.</p>
-
-        <div id="auth-panel" class="card max-w-md mx-auto mb-10 hidden text-left fade-in">
-          <h2 class="text-xl gold-text font-semibold mb-6 uppercase tracking-widest border-b border-[#333] pb-2">Central
-            Authorization</h2>
-          <div id="login-error"
-            class="bg-red-900/20 text-red-500 border border-red-500/50 p-3 rounded text-sm mb-6 hidden font-mono"></div>
-          <form id="login-form">
-            <label class="block text-xs uppercase text-gray-400 mb-2 tracking-wider">Identity Node</label>
-            <input type="email" id="login-email" placeholder="email@domain.com" required autocomplete="off"
-              class="mb-5">
-            <label class="block text-xs uppercase text-gray-400 mb-2 tracking-wider">Passcode</label>
-            <input type="password" id="login-password" placeholder="••••••••" required autocomplete="off" class="mb-6">
-            <button type="submit" class="gold-btn py-3 text-lg uppercase tracking-wider">Authorize Access</button>
-          </form>
-        </div>
-
-        <div id="landing-actions" class="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-          <button
-            onclick="document.getElementById('auth-panel').classList.remove('hidden'); document.getElementById('landing-actions').classList.add('hidden');"
-            class="gold-btn md:w-auto px-12 py-4 text-lg uppercase tracking-wider">Sign In securely</button>
-          <button
-            class="outline-btn md:w-auto px-12 py-4 text-lg uppercase tracking-wider opacity-50 cursor-not-allowed hidden">Join
-            Movement</button>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-left opacity-90">
-          <div class="bg-[#111] border border-[#333] p-6 rounded-xl hover:border-[var(--gold)] transition-colors">
-            <div class="text-[var(--gold)] mb-3 text-2xl">⚡</div>
-            <h3 class="text-white font-bold mb-2 uppercase tracking-wide">AI Verified</h3>
-            <p class="text-gray-500 text-sm">Automated infrastructure ensures absolute protocol integrity.</p>
-          </div>
-          <div class="bg-[#111] border border-[#333] p-6 rounded-xl hover:border-[var(--gold)] transition-colors">
-            <div class="text-[var(--gold)] mb-3 text-2xl">🛡️</div>
-            <h3 class="text-white font-bold mb-2 uppercase tracking-wide">Secure Rewards</h3>
-            <p class="text-gray-500 text-sm">Direct treasury deposits for every confirmed civic action.</p>
-          </div>
-          <div class="bg-[#111] border border-[#333] p-6 rounded-xl hover:border-[var(--gold)] transition-colors">
-            <div class="text-[var(--gold)] mb-3 text-2xl">🌱</div>
-            <h3 class="text-white font-bold mb-2 uppercase tracking-wide">Civic Growth</h3>
-            <p class="text-gray-500 text-sm">Quantifiable ecological elevation for citizens and organizations.</p>
-          </div>
+        class="bg-black border border-[#333] rounded h-32 w-full mb-4 flex items-center justify-center cursor-pointer hover:border-blue-500 overflow-hidden transition-colors"
+        onclick="document.getElementById('modal-file').click()">
+        <img id="modal-img-preview" class="w-full h-full object-cover hidden">
+        <div id="modal-placeholder" class="text-blue-500 flex flex-col items-center">
+          <span class="text-2xl">📸</span><span class="text-[10px] uppercase tracking-widest mt-1">Required Photo</span>
         </div>
       </div>
-    </main>
-
-    <!-- VIEW: CITIZEN -->
-    <main id="view-citizen" class="spa-view fade-in">
-      <div id="citizen-dashboard-content"></div>
-    </main>
-
-    <!-- VIEW: WORKER -->
-    <main id="view-worker" class="spa-view fade-in">
-      <div id="worker-dashboard-content"></div>
-    </main>
-
-    <!-- VIEW: NGO -->
-    <main id="view-ngo" class="spa-view fade-in">
-      <div id="ngo-dashboard-content"></div>
-    </main>
-
-    <!-- VIEW: ADMIN -->
-    <main id="view-admin" class="spa-view fade-in">
-      <div id="admin-dashboard-content"></div>
-    </main>
-
+      <div class="flex gap-2">
+        <button onclick="Engine.closeDonateModal()"
+          class="outline-btn !border-gray-600 !text-gray-400 hover:!text-white">Cancel</button>
+        <button id="modal-submit-btn" disabled onclick="Engine.submitFoodDonation()"
+          class="gold-btn !bg-gradient-to-br !from-blue-600 !to-blue-800 !text-white !border-none">Submit Cargo</button>
+      </div>
+    </div>
   </div>
 
   <script>
-    /* ==============================================
-       GLOBAL APP STATE & ENGINE
-       ============================================== */
+    // --- ANIMATED COUNTER ENGINE ---
+    function animateValue(obj, start, end, duration, isFloat = false) {
+      let startTimestamp = null;
+      const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        const current = Math.floor(progress * (end - start) + start);
+        obj.innerHTML = isFloat ? (progress * (end - start) + start).toFixed(1) : current;
+        if (progress < 1) window.requestAnimationFrame(step);
+      };
+      window.requestAnimationFrame(step);
+    }
+
     const AppState = {
-      DB_KEY: "zgx_spa_db",
-      SESSION_KEY: "zgx_spa_session",
-      TOTAL_RESERVE: 50000,
       db: null,
-      currentUser: null,
+      session: null,
       charts: {},
-      timers: {},
       maps: {},
-      viewData: { citizenImg: {}, workerStartTime: 0 }
+      tempImg: null,
+      modalImg: null
     };
 
-    const AppEngine = {
+    const Engine = {
       init: function () {
         this.initDB();
-        this.bindLogin();
         this.checkSession();
+        this.startGlobalTicks();
       },
 
       initDB: function () {
-        const stored = localStorage.getItem(AppState.DB_KEY);
-        if (stored) {
-          try { AppState.db = JSON.parse(stored); } catch (e) { AppState.db = null; }
-        }
+        try {
+          AppState.db = JSON.parse(localStorage.getItem("zgx_db"));
+        } catch (e) { }
 
         if (!AppState.db || !Array.isArray(AppState.db.users)) {
           AppState.db = {
             users: [
-              { email: "tansil@admin", password: "123", role: "admin", wallet: 0, co2: 0, wasteCount: 0, foodCount: 0, gardenCount: 0 },
-              { email: "tansil@user", password: "123", role: "citizen", wallet: 0, co2: 0, wasteCount: 0, foodCount: 0, gardenCount: 0 },
-              { email: "tansil@worker", password: "123", role: "worker", wallet: 0, co2: 0, wasteCount: 0, foodCount: 0, gardenCount: 0 },
-              { email: "tansil@ngo", password: "123", role: "ngo", wallet: 0, co2: 0, wasteCount: 0, foodCount: 0, gardenCount: 0 }
+              { email: "tansil@admin", password: "123", role: "admin", wallet: 0, co2: 0 },
+              { email: "tansil@user", password: "123", role: "citizen", wallet: 0, co2: 0 },
+              { email: "tansil@worker", password: "123", role: "worker", wallet: 0, co2: 0, dailyCount: 0, lastActiveDate: "" },
+              { email: "tansil@ngo", password: "123", role: "ngo", wallet: 0, co2: 0 }
             ],
             wasteSubmissions: [],
             foodTickets: [],
             gardenUpdates: [],
-            withdrawals: []
+            withdrawals: [],
+            systemReserve: 50000
           };
           this.saveDB();
         }
       },
 
-      saveDB: function () {
-        localStorage.setItem(AppState.DB_KEY, JSON.stringify(AppState.db));
-      },
+      saveDB: function () { localStorage.setItem("zgx_db", JSON.stringify(AppState.db)); },
 
       checkSession: function () {
-        const sessionStr = localStorage.getItem(AppState.SESSION_KEY);
-        if (sessionStr) {
+        const stored = localStorage.getItem("zgx_session");
+        if (stored) {
           try {
-            const email = JSON.parse(sessionStr);
+            const email = JSON.parse(stored);
             const user = AppState.db.users.find(u => u.email === email);
             if (user) {
-              AppState.currentUser = user;
-              this.routeToRole(user.role);
+              AppState.session = user;
+              this.launchApp();
               return;
             }
           } catch (e) { }
         }
-        this.logout();
       },
 
-      login: function (email, pass) {
-        const user = AppState.db.users.find(u => u.email === email && u.password === pass);
+      login: function () {
+        const em = document.getElementById("loginEmail").value.trim();
+        const pw = document.getElementById("loginPass").value.trim();
+        const err = document.getElementById("login-error");
+
+        if (!Array.isArray(AppState.db.users)) return;
+
+        const user = AppState.db.users.find(u => u.email === em && u.password === pw);
+
         if (user) {
-          AppState.currentUser = user;
-          localStorage.setItem(AppState.SESSION_KEY, JSON.stringify(user.email));
-          document.getElementById('login-password').value = '';
-          this.routeToRole(user.role);
+          AppState.session = user;
+          localStorage.setItem("zgx_session", JSON.stringify(user.email));
+          document.getElementById("loginPass").value = "";
+          err.classList.add("hidden");
+          this.launchApp();
         } else {
-          const err = document.getElementById('login-error');
-          err.textContent = "ERR: Identity Node unrecognized or Passcode invalid.";
-          err.classList.remove('hidden');
+          err.textContent = "Identity Node / Passcode mismatch.";
+          err.classList.remove("hidden");
         }
       },
 
       logout: function () {
-        AppState.currentUser = null;
-        localStorage.removeItem(AppState.SESSION_KEY);
+        AppState.session = null;
+        localStorage.removeItem("zgx_session");
+        this.cleanup();
 
-        // Clear all charts, timers, maps to prevent leaks
-        this.destroyAllCharts();
-        this.destroyAllMaps();
-        this.clearAllTimers();
-        AppState.viewData = { citizenImg: {}, workerStartTime: 0 };
-
-        document.getElementById('app-header').classList.add('hidden');
-        this.switchView('view-landing');
-
-        // Reset landing UI
-        document.getElementById('auth-panel').classList.add('hidden');
-        document.getElementById('landing-actions').classList.remove('hidden');
-        document.getElementById('login-error').classList.add('hidden');
+        document.getElementById("appView").classList.add("hidden");
+        document.getElementById("loginView").style.display = "flex";
+        document.getElementById("dashboardContent").style.opacity = "0";
+        setTimeout(() => { document.getElementById("dashboardContent").innerHTML = ""; }, 500);
+        document.getElementById("ticket-banner").innerHTML = "";
+        document.getElementById("ticket-banner").classList.add("hidden");
       },
 
-      routeToRole: function (role) {
-        document.getElementById('app-header').classList.remove('hidden');
-        document.getElementById('header-role').textContent = role + " Dashboard";
-        document.getElementById('header-email').textContent = AppState.currentUser.email;
+      launchApp: function () {
+        document.getElementById("loginView").style.display = "none";
+        document.getElementById("appView").classList.remove("hidden");
 
-        if (role === 'admin') { this.switchView('view-admin'); Views.renderAdmin(); }
-        else if (role === 'citizen') { this.switchView('view-citizen'); Views.renderCitizen(); }
-        else if (role === 'worker') { this.switchView('view-worker'); Views.renderWorker(); }
-        else if (role === 'ngo') { this.switchView('view-ngo'); Views.renderNGO(); }
+        document.getElementById("header-email").textContent = AppState.session.email;
+        document.getElementById("header-role").textContent = AppState.session.role;
+
+        if (AppState.session.role === 'worker') this.checkWorkerDay();
+
+        this.renderBanners();
+        this.renderRole();
       },
 
-      switchView: function (viewId) {
-        document.querySelectorAll('.spa-view').forEach(v => v.classList.remove('active'));
-        const v = document.getElementById(viewId);
-        if (v) v.classList.add('active');
+      cleanup: function () {
+        Object.keys(AppState.charts).forEach(k => { AppState.charts[k].destroy(); delete AppState.charts[k]; });
+        Object.keys(AppState.maps).forEach(k => { AppState.maps[k].remove(); delete AppState.maps[k]; });
       },
 
-      bindLogin: function () {
-        const form = document.getElementById('login-form');
-        if (form) {
-          form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const em = document.getElementById('login-email').value.trim();
-            const pw = document.getElementById('login-password').value.trim();
-            this.login(em, pw);
-          });
+      checkWorkerDay: function () {
+        const u = AppState.session;
+        const today = new Date().toDateString();
+        if (u.lastActiveDate !== today) {
+          u.lastActiveDate = today;
+          u.dailyCount = 0;
+          this.saveDB();
         }
       },
 
-      // Cleanup Utilities
-      destroyAllCharts: function () {
-        Object.keys(AppState.charts).forEach(k => {
-          AppState.charts[k].destroy();
-          delete AppState.charts[k];
-        });
-      },
-      destroyAllMaps: function () {
-        Object.keys(AppState.maps).forEach(k => {
-          AppState.maps[k].remove();
-          delete AppState.maps[k];
-        });
-      },
-      clearAllTimers: function () {
-        Object.keys(AppState.timers).forEach(k => {
-          clearInterval(AppState.timers[k]);
-          delete AppState.timers[k];
-        });
+      startGlobalTicks: function () {
+        setInterval(() => {
+          if (!AppState.db || !Array.isArray(AppState.db.foodTickets)) return;
+          let changed = false;
+          const now = Date.now();
+
+          AppState.db.foodTickets.forEach(t => {
+            if (t.status === 'open' && t.deadline <= now) {
+              t.status = 'expired';
+              changed = true;
+            }
+          });
+          if (changed) {
+            this.saveDB();
+            if (AppState.session) {
+              this.renderBanners();
+              if (AppState.session.role === 'ngo') this.renderRole();
+            }
+          }
+        }, 10000);
       },
 
-      // Safe User Fetcher
-      getUserByEmail: function (email) {
-        return AppState.db.users.find(u => u.email === email);
+      renderRole: function () {
+        this.cleanup();
+        const dc = document.getElementById("dashboardContent");
+        dc.style.opacity = "0";
+
+        setTimeout(() => {
+          if (AppState.session.role === 'admin') Views.renderAdmin();
+          else if (AppState.session.role === 'citizen') Views.renderCitizen();
+          else if (AppState.session.role === 'worker') Views.renderWorker();
+          else if (AppState.session.role === 'ngo') Views.renderNGO();
+          dc.style.opacity = "1";
+        }, 50);
       },
 
-      // Geolocation Wrapper
+      renderBanners: function () {
+        const wrap = document.getElementById("ticket-banner");
+        if (!AppState.db || !Array.isArray(AppState.db.foodTickets)) { wrap.classList.add("hidden"); return; }
+
+        const openTix = AppState.db.foodTickets.filter(t => t.status === 'open');
+        if (openTix.length === 0) { wrap.classList.add("hidden"); return; }
+
+        wrap.classList.remove("hidden");
+        wrap.innerHTML = `<div class="p-2 w-full flex overflow-x-auto gap-4 hide-scroll">
+                    ${openTix.map(t => `
+                        <div onclick="Engine.openDonateModal('${t.id}')" class="flex-shrink-0 bg-blue-900/40 border border-blue-400 p-2 flex items-center justify-between min-w-[320px] cursor-pointer hover:bg-blue-800/60 transition-colors rounded">
+                            <div>
+                                <div class="text-[10px] uppercase text-blue-300 font-bold tracking-widest flex items-center gap-1"><span class="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></span> NGO LEDGER: ${t.item}</div>
+                                <div class="text-xs text-white font-mono mt-1">N: ${t.remainingQty} | ${Math.max(1, Math.floor((t.deadline - Date.now()) / 60000))}m rem</div>
+                            </div>
+                            <div class="bg-blue-500 text-[10px] font-bold px-3 py-1.5 rounded uppercase tracking-widest text-white shadow-lg">SUPPLY</div>
+                        </div>
+                    `).join('')}
+                </div>`;
+      },
+
       getGeo: function (callback) {
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
             pos => callback({ lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: Date.now() }),
-            err => alert("ERR: High-Accuracy Geolocation denied. Node action blocked."),
+            err => alert("Protocol violation: Geolocation strictly required."),
             { enableHighAccuracy: true }
           );
-        } else {
-          alert("ERR: Geolocation strictly required.");
-        }
+        } else alert("Geolocation unsupported on this node.");
       },
 
-      // Image Upload Wrapper
-      handleImage: function (inputEl, previewId, stateKey, btnId) {
+      haversine: function (lat1, lon1, lat2, lon2) {
+        const R = 6371e3;
+        const p1 = lat1 * Math.PI / 180, p2 = lat2 * Math.PI / 180;
+        const dp = (lat2 - lat1) * Math.PI / 180, dl = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dp / 2) * Math.sin(dp / 2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+        return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+      },
+
+      toggleUI: function (id) {
+        document.querySelectorAll('.mod-section').forEach(el => el.style.display = 'none');
+        document.getElementById(id).style.display = 'block';
+        AppState.tempImg = null;
+
+        ["ui-w-img", "ui-g-img"].forEach(imgId => {
+          const el = document.getElementById(imgId);
+          if (el) { el.src = ""; el.classList.add("hidden"); el.nextElementSibling.classList.remove("hidden"); }
+        });
+
+        ["ui-submit-btn", "ui-g-btn"].forEach(btnId => {
+          const el = document.getElementById(btnId);
+          if (el) { el.disabled = true; el.innerHTML = "Upload Log"; }
+        });
+      },
+
+      handleImage: function (inputEl, previewId, isModal = false) {
         const file = inputEl.files[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (e) => {
-          AppState.viewData.citizenImg[stateKey] = e.target.result;
-          const img = document.getElementById(previewId);
-          if (img) {
-            img.src = e.target.result;
-            img.classList.remove('hidden');
-            img.parentElement.querySelector('.cam-placeholder').classList.add('hidden');
+          const res = e.target.result;
+          if (isModal) AppState.modalImg = res;
+          else AppState.tempImg = res;
+
+          const el = document.getElementById(previewId);
+          if (el) {
+            el.src = res;
+            el.classList.remove('hidden');
+            el.nextElementSibling.classList.add('hidden');
           }
-          if (btnId) document.getElementById(btnId).disabled = false;
+
+          if (isModal) document.getElementById("modal-submit-btn").disabled = false;
+          else {
+            const btn = document.getElementById("ui-submit-btn");
+            if (btn) btn.disabled = false;
+            const gbtn = document.getElementById("ui-g-btn");
+            if (gbtn) gbtn.disabled = false;
+          }
         };
         reader.readAsDataURL(file);
       },
 
-      // Counter Animator
-      animateValue: function (id, start, end, duration) {
-        if (start === end) return;
-        const obj = document.getElementById(id);
-        if (!obj) return;
-        let startTimestamp = null;
-        const step = (timestamp) => {
-          if (!startTimestamp) startTimestamp = timestamp;
-          const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-          obj.innerHTML = Math.floor(progress * (end - start) + start);
-          if (progress < 1) window.requestAnimationFrame(step);
-          else obj.innerHTML = end;
-        };
-        window.requestAnimationFrame(step);
+      // --- NGO ---
+      openDonateModal: function (tid) {
+        if (AppState.session.role !== 'citizen') return alert("Only standard citizen nodes process supply donations.");
+
+        const t = AppState.db.foodTickets.find(x => x.id === tid);
+        if (!t || t.status !== 'open') return alert("Ledger block closed.");
+
+        document.getElementById("modal-ticket-id").value = tid;
+        document.getElementById("modal-ticket-info").innerHTML = `<b>Target:</b> ${t.item}<br><b>Required:</b> ${t.remainingQty}`;
+        document.getElementById("modal-qty").value = "";
+        document.getElementById("modal-qty").max = t.remainingQty;
+
+        AppState.modalImg = null;
+        const imgPre = document.getElementById("modal-img-preview");
+        imgPre.src = ""; imgPre.classList.add("hidden");
+        document.getElementById("modal-placeholder").classList.remove("hidden");
+        document.getElementById("modal-submit-btn").disabled = true;
+        document.getElementById("donateModal").classList.remove("hidden");
+      },
+
+      closeDonateModal: function () {
+        document.getElementById("donateModal").classList.add("hidden");
+        AppState.modalImg = null;
+      },
+
+      submitFoodDonation: function () {
+        const tid = document.getElementById("modal-ticket-id").value;
+        const qty = parseFloat(document.getElementById("modal-qty").value);
+        const img = AppState.modalImg;
+
+        if (!img || isNaN(qty) || qty <= 0) return alert("Invalid inputs/missing photo.");
+
+        const t = AppState.db.foodTickets.find(x => x.id === tid);
+        if (!t || t.status !== 'open') return alert("Ledger closed.");
+        if (qty > t.remainingQty) return alert(`Max block allocatable is ${t.remainingQty}`);
+
+        const btn = document.getElementById("modal-submit-btn");
+        btn.textContent = "Locking Geo...";
+        btn.disabled = true;
+
+        this.getGeo((loc) => {
+          t.remainingQty -= qty;
+          t.contributions.push({ email: AppState.session.email, qty, lat: loc.lat, lng: loc.lng, image: img, timestamp: loc.timestamp });
+          if (t.remainingQty <= 0) { t.remainingQty = 0; t.status = "closed"; }
+
+          const u = AppState.db.users.find(x => x.email === AppState.session.email);
+          if (u) u.wallet += (qty * 2);
+
+          this.saveDB();
+          this.closeDonateModal();
+          alert("Donation block appended. Wallet credited.");
+          if (AppState.session.role === 'citizen') Views.renderCitizen();
+        });
+      },
+
+      // --- ACTIONS ---
+      submitWaste: function () {
+        if (!AppState.tempImg) return;
+        const btn = document.getElementById("ui-submit-btn");
+        btn.innerText = "Locking Geo...";
+        btn.disabled = true;
+
+        this.getGeo((loc) => {
+          AppState.db.wasteSubmissions.push({
+            id: Date.now().toString(),
+            email: AppState.session.email,
+            image: AppState.tempImg,
+            lat: loc.lat,
+            lng: loc.lng,
+            status: "pending",
+            timestamp: loc.timestamp
+          });
+          this.saveDB();
+          alert("Waste submission recorded to network.");
+          Views.renderCitizen();
+        });
+      },
+
+      submitGarden: function () {
+        if (!AppState.tempImg) return;
+        const pCnt = parseInt(document.getElementById("g-plants").value) || 0;
+        const tCnt = parseInt(document.getElementById("g-trees").value) || 0;
+        if (pCnt === 0 && tCnt === 0) return alert("Must declare bio-assets.");
+
+        const btn = document.getElementById("ui-g-btn");
+        btn.innerHTML = "Locking Geo...";
+        btn.disabled = true;
+
+        this.getGeo((loc) => {
+          const uGards = AppState.db.gardenUpdates.filter(g => g.email === AppState.session.email);
+          if (uGards.length > 0) {
+            const dist = this.haversine(uGards[0].lat, uGards[0].lng, loc.lat, loc.lng);
+            if (dist > 50) {
+              alert(`ERR: Geo-signature mismatch. Must be within 50m of baseline garden location. (You are ${Math.floor(dist)}m away)`);
+              btn.innerHTML = "Upload Log"; btn.disabled = false;
+              return;
+            }
+          }
+
+          AppState.db.gardenUpdates.push({
+            id: Date.now().toString(),
+            email: AppState.session.email,
+            image: AppState.tempImg,
+            lat: loc.lat,
+            lng: loc.lng,
+            plantCount: pCnt,
+            treeCount: tCnt,
+            verified: false,
+            timestamp: loc.timestamp
+          });
+          this.saveDB();
+          alert("Garden state appended.");
+          Views.renderCitizen();
+        });
+      },
+
+      verifyWaste: function (id) {
+        const w = AppState.db.wasteSubmissions.find(x => x.id === id);
+        if (!w || w.status === 'verified') return;
+        const btn = document.getElementById(`btn-w-${id}`);
+        btn.innerText = "Syncing Geo..."; btn.disabled = true;
+
+        this.getGeo((loc) => {
+          const dist = this.haversine(loc.lat, loc.lng, w.lat, w.lng);
+          if (dist > 500) {
+            alert("You are more than 500 meters away.");
+            btn.innerHTML = "Verify"; btn.disabled = false;
+            return;
+          }
+          w.status = 'verified';
+
+          const cit = AppState.db.users.find(u => u.email === w.email);
+          const wrk = AppState.session;
+
+          if (cit) cit.wallet += 10;
+
+          let wRwd = 15;
+          wrk.dailyCount++;
+          if (wrk.dailyCount % 10 === 0) {
+            const tier = wrk.dailyCount / 10;
+            const bonus = tier * 10;
+            wRwd += bonus;
+            alert(`Milestone! Tier ${tier} reached. Bonus +${bonus} ZC.`);
+          }
+          wrk.wallet += wRwd;
+
+          this.saveDB(); Views.renderWorker();
+        });
+      },
+
+      verifyGarden: function (id) {
+        const g = AppState.db.gardenUpdates.find(x => x.id === id);
+        if (!g || g.verified) return;
+        const btn = document.getElementById(`btn-g-${id}`);
+        btn.innerText = "Syncing Geo..."; btn.disabled = true;
+
+        this.getGeo((loc) => {
+          const dist = this.haversine(loc.lat, loc.lng, g.lat, g.lng);
+          if (dist > 500) {
+            alert("You are more than 500 meters away.");
+            btn.innerHTML = "Verify"; btn.disabled = false;
+            return;
+          }
+          g.verified = true;
+
+          const cit = AppState.db.users.find(u => u.email === g.email);
+          const wrk = AppState.session;
+
+          if (cit) {
+            cit.wallet += (50 + (g.plantCount * 1) + (g.treeCount * 5));
+            cit.co2 += (g.plantCount * 0.5);
+          }
+          wrk.wallet += 15;
+
+          this.saveDB(); Views.renderWorker();
+        });
       }
     };
 
-    /* ==============================================
-       RENDER VIEWS
-       ============================================== */
     const Views = {
-
-      /* --- SHARED COMPONENTS --- */
-      getLeaderboardHTML: function () {
-        const db = AppState.db;
-        const cits = [...db.users].filter(u => u.role === 'citizen').sort((a, b) => b.wallet - a.wallet).slice(0, 5);
-        const wrks = [...db.users].filter(u => u.role === 'worker').sort((a, b) => b.wallet - a.wallet).slice(0, 5);
-
-        const renderRows = (arr) => arr.length === 0 ? '<p class="text-xs text-gray-500 italic">No node data.</p>' : arr.map((u, i) => `
-                    <div class="flex justify-between items-center bg-[#111] p-2 rounded text-sm ${i === 0 ? 'border border-[var(--gold)] text-[var(--gold)] font-bold' : 'border border-[#222] text-gray-300'}">
-                        <span>${i === 0 ? '🥇' : `#${i + 1}`} ${u.email.split('@')[0]}</span>
-                        <span class="font-mono">${u.wallet} ZC</span>
-                    </div>
-                `).join('');
-
-        return `
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <h3 class="text-xs uppercase text-gray-400 border-b border-[#333] pb-1 mb-2">Top Citizens</h3>
-                            <div class="space-y-1">${renderRows(cits)}</div>
-                        </div>
-                        <div>
-                            <h3 class="text-xs uppercase text-gray-400 border-b border-[#333] pb-1 mb-2">Top Workers</h3>
-                            <div class="space-y-1">${renderRows(wrks)}</div>
-                        </div>
-                    </div>
-                `;
-      },
-
-      /* --- CITIZEN VIEW --- */
       renderCitizen: function () {
-        const u = AppState.currentUser;
-        const tix = Array.isArray(AppState.db.foodTickets) ? AppState.db.foodTickets.filter(t => t.status === 'active' && t.deadline > Date.now()) : [];
-
-        // Clear stale input state
-        AppState.viewData.citizenImg = {};
+        const u = AppState.session;
+        const uGards = AppState.db.gardenUpdates.filter(g => g.email === u.email).reverse();
+        let gTotp = 0; uGards.forEach(g => gTotp += g.plantCount);
 
         let html = `
-                    <!-- STATS -->
-                    <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-                        <div class="card text-center flex flex-col justify-center lg:col-span-2">
-                            <div class="text-xs text-gray-400 uppercase tracking-widest mb-1">Treasury Balance</div>
-                            <div class="text-4xl md:text-5xl font-bold gold-text font-mono"><span id="cit-wallet">${u.wallet}</span> ZC</div>
-                        </div>
-                        <div class="bg-[#111] border border-[#222] rounded-xl p-4 text-center flex flex-col justify-center">
-                            <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">CO₂ Offset</div>
-                            <div class="text-2xl font-bold text-green-500">${u.co2.toFixed(1)}kg</div>
-                        </div>
-                        <div class="bg-[#111] border border-[#222] rounded-xl p-4 text-center flex flex-col justify-center">
-                            <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">Waste Captured</div>
-                            <div class="text-2xl font-bold text-white">${u.wasteCount}</div>
-                        </div>
-                        <div class="bg-[#111] border border-[#222] rounded-xl p-4 text-center flex flex-col justify-center">
-                            <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">Food Donated</div>
-                            <div class="text-2xl font-bold text-white">${u.foodCount}</div>
+                    <div class="grid grid-cols-2 gap-4 mb-8">
+                        <div class="card col-span-2 border-l-4 border-l-[var(--gold)] border-t-0 border-r-0 border-b-0 flex justify-between items-center text-left">
+                           <div>
+                               <div class="text-[10px] text-gray-500 uppercase tracking-widest">Network Treasury</div>
+                               <div class="text-4xl font-mono font-bold shimmer-text flex gap-1"><span id="anim-c-wal">0</span> <span class="text-xs self-end mb-1 text-gray-400">ZC</span></div>
+                           </div>
+                           <div class="text-right">
+                               <div class="text-[10px] text-gray-500 uppercase tracking-widest">Offset Metric</div>
+                               <div class="text-xl font-mono text-green-500 flex gap-1"><span id="anim-c-co2">0.0</span><span class="text-[10px] self-end mb-1 text-gray-400">kg</span></div>
+                           </div>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div class="space-y-6 lg:col-span-2">
-                            
-                            <!-- WASTE SUBMISSION -->
-                            <div class="card">
-                                <h2 class="text-xl font-bold mb-4 uppercase tracking-widest text-[var(--gold)]">Civic Waste Upload</h2>
-                                <input type="file" id="cit-w-file" accept="image/*" class="hidden" onchange="AppEngine.handleImage(this, 'cit-w-img', 'waste', 'cit-w-btn')">
-                                <div class="bg-black border border-[#333] rounded h-40 mb-4 flex items-center justify-center cursor-pointer overflow-hidden hover:border-[#666]" onclick="document.getElementById('cit-w-file').click()">
-                                    <img id="cit-w-img" class="w-full h-full object-cover hidden">
-                                    <div class="cam-placeholder flex flex-col items-center"><span class="text-3xl mb-2">📸</span><span class="text-xs text-[var(--gold)] uppercase">Requires Image</span></div>
-                                </div>
-                                <button id="cit-w-btn" disabled class="gold-btn uppercase tracking-widest" onclick="Actions.submitWaste()">Process Geo-Packet</button>
-                            </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                        <button onclick="Engine.toggleUI('ui-waste')" class="outline-btn uppercase tracking-widest !py-5">Waste to Wealth</button>
+                        <button onclick="document.getElementById('ticket-banner').scrollIntoView({behavior:'smooth'})" class="outline-btn uppercase tracking-widest !py-5 !border-blue-500 !text-blue-500">Food Logistics</button>
+                        <button onclick="Engine.toggleUI('ui-garden')" class="outline-btn uppercase tracking-widest !py-5 !border-green-500 !text-green-500">Terrace Garden</button>
+                    </div>
 
-                            <!-- FOOD DONATION -->
-                            <div class="card">
-                                <h2 class="text-xl font-bold mb-4 uppercase tracking-widest text-[#3b82f6]">Food Logistics</h2>
-                                
-                                <select id="cit-f-sel" class="font-mono text-sm mb-4">
-                                    <option value="">-- Target NGO Node --</option>
-                                    ${tix.map(t => `<option value="${t.id}">${t.item} (Needs ${t.remaining}kg)</option>`).join('')}
-                                </select>
-
-                                <input type="number" id="cit-f-qty" placeholder="Units Provided (kg/items)" min="1" class="font-mono mb-4">
-
-                                <input type="file" id="cit-f-file" accept="image/*" class="hidden" onchange="AppEngine.handleImage(this, 'cit-f-img', 'food', 'cit-f-btn')">
-                                <div class="bg-black border border-[#333] rounded h-32 mb-4 flex items-center justify-center cursor-pointer overflow-hidden hover:border-[#666]" onclick="document.getElementById('cit-f-file').click()">
-                                    <img id="cit-f-img" class="w-full h-full object-cover hidden">
-                                    <div class="cam-placeholder flex flex-col items-center text-[#3b82f6]"><span class="text-2xl mb-1">📸</span><span class="text-[10px] uppercase">Attach Evidence</span></div>
-                                </div>
-                                <button id="cit-f-btn" disabled class="gold-btn !bg-gradient-to-br !from-blue-600 !to-blue-800 !text-white uppercase tracking-widest" onclick="Actions.submitFood()">Issue Donation</button>
-                            </div>
+                    <div id="ui-waste" class="mod-section card text-center mb-8 fade-in">
+                        <h3 class="text-sm font-bold gold-text uppercase tracking-widest mb-4 border-b border-[#333] pb-2">Waste Protocol</h3>
+                        <input type="file" id="ui-w-file" accept="image/*" class="hidden" onchange="Engine.handleImage(this, 'ui-w-img')">
+                        <div class="bg-black border border-[#333] rounded h-48 w-full max-w-sm mx-auto mb-4 flex items-center justify-center cursor-pointer overflow-hidden transition-colors hover:border-[#666]" onclick="document.getElementById('ui-w-file').click()">
+                           <img id="ui-w-img" class="w-full h-full object-cover hidden">
+                           <div class="text-center text-[var(--gold)] opacity-70"><span class="text-3xl">📸</span><br><span class="text-[10px] uppercase tracking-widest mt-2 block">Capture Evidence</span></div>
                         </div>
+                        <button id="ui-submit-btn" disabled class="gold-btn uppercase max-w-sm mx-auto tracking-widest mt-2" onclick="Engine.submitWaste()">Process Status</button>
+                    </div>
 
-                        <div class="space-y-6">
-                            <!-- GARDEN -->
-                            <div class="card">
-                                <h2 class="text-xl font-bold mb-4 uppercase tracking-widest text-green-500">Terrace Garden</h2>
-                                <div class="flex justify-between items-center mb-4 text-sm">
-                                    <span class="text-gray-400 uppercase tracking-widest">Growth Logs:</span>
-                                    <span class="text-green-500 font-bold font-mono text-xl">${u.gardenCount}</span>
-                                </div>
-                                <input type="file" id="cit-g-file" accept="image/*" class="hidden" onchange="AppEngine.handleImage(this, 'cit-g-img', 'garden', 'cit-g-btn')">
-                                <div class="bg-black border border-[#333] rounded h-24 mb-4 flex items-center justify-center cursor-pointer overflow-hidden hover:border-[#666]" onclick="document.getElementById('cit-g-file').click()">
-                                    <img id="cit-g-img" class="w-full h-full object-cover hidden">
-                                    <div class="cam-placeholder flex flex-col items-center text-green-500"><span class="text-lg">📸</span></div>
-                                </div>
-                                <button id="cit-g-btn" disabled class="outline-btn !border-green-500 !text-green-500 hover:!bg-green-900/20 text-xs py-3 uppercase tracking-widest" onclick="Actions.submitGarden()">Log Garden State</button>
-                            </div>
-
-                            <!-- LEADERBOARD PREVIEW -->
-                            <div class="card p-5">
-                                <h2 class="text-lg font-bold mb-4 uppercase tracking-widest text-[var(--gold)]">Network Top Nodes</h2>
-                                ${this.getLeaderboardHTML()}
-                            </div>
+                    <div id="ui-garden" class="mod-section card text-center mb-8 fade-in">
+                        <h3 class="text-sm font-bold text-green-500 uppercase tracking-widest mb-4 border-b border-[#333] pb-2">Bio-Garden Protocol</h3>
+                        <div class="grid grid-cols-2 gap-4 max-w-sm mx-auto mb-4">
+                            <input type="number" id="g-plants" placeholder="Plants" min="0" class="!mb-0 text-center font-mono">
+                            <input type="number" id="g-trees" placeholder="Trees" min="0" class="!mb-0 text-center font-mono">
                         </div>
+                        <input type="file" id="ui-g-file" accept="image/*" class="hidden" onchange="Engine.handleImage(this, 'ui-g-img')">
+                        <div class="bg-black border border-[#333] rounded h-40 w-full max-w-sm mx-auto mb-4 flex items-center justify-center cursor-pointer overflow-hidden transition-colors hover:border-[#666]" onclick="document.getElementById('ui-g-file').click()">
+                           <img id="ui-g-img" class="w-full h-full object-cover hidden">
+                           <div class="text-center text-green-500 opacity-70"><span class="text-3xl">📸</span><br><span class="text-[10px] uppercase tracking-widest mt-2 block">Document State</span></div>
+                        </div>
+                        <p class="text-[9px] text-gray-500 uppercase mb-4 max-w-sm mx-auto bg-black p-2 border border-[#222] rounded">First log sets baseline geo-location lock.</p>
+                        <button id="ui-g-btn" disabled class="outline-btn !border-green-500 !text-green-500 max-w-sm mx-auto uppercase tracking-widest mt-2 hover:!bg-green-900/20" onclick="Engine.submitGarden()">Upload Log</button>
+                        
+                        ${uGards.length > 0 ? `
+                        <div class="mt-8 text-left border-t border-[#333] pt-6 max-w-sm mx-auto">
+                            <div class="flex justify-between text-[10px] text-gray-400 uppercase tracking-widest mb-4"><span>Uploads: ${uGards.length}</span><span>Tot Plants: ${gTotp}</span></div>
+                            <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                ${uGards.map(h => `<div class="bg-black border border-[#222] p-2 rounded flex justify-between text-[10px] uppercase font-mono"><span class="${h.verified ? 'text-green-400' : 'text-gray-500'}">${h.verified ? '✓ VER' : '✗ PEN'}</span> <span class="text-gray-400">P:${h.plantCount} T:${h.treeCount}</span></div>`).join('')}
+                            </div>
+                        </div>` : ''}
                     </div>
                 `;
-        document.getElementById('citizen-dashboard-content').innerHTML = html;
-        AppEngine.animateValue('cit-wallet', Math.max(0, u.wallet - 20), u.wallet, 1000);
+        document.getElementById('dashboardContent').innerHTML = html;
+        setTimeout(() => {
+          animateValue(document.getElementById('anim-c-wal'), 0, u.wallet, 1000);
+          animateValue(document.getElementById('anim-c-co2'), 0, u.co2, 1000, true);
+        }, 100);
       },
 
-      /* --- WORKER VIEW --- */
       renderWorker: function () {
-        const u = AppState.currentUser;
-        // Single timer init
-        if (AppState.viewData.workerStartTime === 0) AppState.viewData.workerStartTime = Date.now();
-
-        AppEngine.clearAllTimers();
-        AppEngine.destroyAllMaps();
-
-        const pending = AppState.db.wasteSubmissions.filter(w => w.status === 'pending');
+        const u = AppState.session;
+        const pW = AppState.db.wasteSubmissions.filter(w => w.status === 'pending');
+        const pG = AppState.db.gardenUpdates.filter(g => !g.verified);
 
         let html = `
-                    <div class="card text-center mb-8 border-t-[var(--gold)] border-t-2">
-                        <div class="flex justify-between items-center mb-6">
-                            <h2 class="text-2xl gold-text font-bold uppercase tracking-widest flex items-center gap-2">
-                                <span class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span> Live Duty Mode
-                            </h2>
-                            <div class="text-right">
-                                <div class="text-[10px] text-gray-500 uppercase tracking-widest">Session Uptime</div>
-                                <div id="wrk-timer" class="font-mono text-lg text-white">00:00:00</div>
-                            </div>
-                        </div>
-                        <div class="text-xs uppercase text-gray-500 mb-1">Contract Balance</div>
-                        <div class="text-4xl font-mono font-bold text-white"><span id="wrk-wallet">${u.wallet}</span> <span class="text-lg text-[var(--gold)]">ZC</span></div>
+                    <div class="card mb-6 border-l-4 border-l-[var(--gold)] border-t-0 border-r-0 border-b-0 flex justify-between items-center bg-[#111]">
+                       <div><div class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Worker Treasury</div><div class="text-3xl font-mono font-bold shimmer-text flex gap-1"><span id="anim-w-wal">0</span><span class="text-xs text-gray-500 self-end mb-1">ZC</span></div></div>
+                       <div class="text-right">
+                           <div class="text-[10px] text-[var(--gold)] uppercase tracking-widest mb-1">Daily Verifications</div>
+                           <div class="font-mono text-xl">${u.dailyCount} <span class="text-[10px] text-gray-500">/ Tier ${(Math.floor(u.dailyCount / 10)) + 1}</span></div>
+                       </div>
                     </div>
 
-                    <div class="font-bold text-gray-400 uppercase tracking-widest border-b border-[#333] pb-2 mb-6 text-sm">Target Signposts (${pending.length})</div>
+                    ${pW.length === 0 && pG.length === 0 ? '<div class="text-center italic text-gray-500 text-xs py-10 card">No active protocol requests in zone.</div>' : ''}
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        ${pending.length === 0 ? `<p class="text-gray-500 italic">No targets detected.</p>` : pending.map(w => `
-                            <div class="bg-[#111] border border-[#222] rounded-xl overflow-hidden shadow-lg flex flex-col">
-                                <div class="grid grid-cols-2 h-40">
-                                    <div class="border-r border-[#333] h-full object-cover">
-                                        <img src="${w.image}" class="w-full h-full object-cover">
-                                    </div>
-                                    <div id="map-${w.id}" class="h-full z-0 bg-[#0f0f0f]"></div>
+                        ${pW.map(w => `
+                            <div class="bg-[#111] border border-[#222] rounded flex flex-col md:flex-row shadow-[0_4px_20px_rgba(0,0,0,0.8)] overflow-hidden transition-transform hover:-translate-y-1">
+                                <img src="${w.image}" class="w-full md:w-32 h-32 object-cover">
+                                <div class="p-4 w-full flex flex-col justify-between">
+                                    <div class="flex justify-between items-center mb-4 border-b border-[#333] pb-2 text-[10px] uppercase font-mono"><span class="text-gray-400">${w.email}</span><span class="font-bold text-[var(--gold)]">WASTE</span></div>
+                                    <button id="btn-w-${w.id}" onclick="Engine.verifyWaste('${w.id}')" class="gold-btn !py-2 uppercase tracking-widest text-xs">Verify Scope</button>
                                 </div>
-                                <div class="p-4 grid grid-cols-2 gap-4 items-end">
-                                    <div>
-                                        <div class="text-[10px] text-gray-500 uppercase tracking-widest">Submitter Node</div>
-                                        <div class="text-sm font-bold text-white mb-2">${w.userEmail}</div>
-                                        <input type="number" id="wt-${w.id}" placeholder="Weight (kg)" class="!mb-0 !py-1 !text-sm font-mono block w-full">
-                                    </div>
-                                    <button class="gold-btn uppercase tracking-widest text-xs h-10" onclick="Actions.verifyWaste('${w.id}')">Verify</button>
+                            </div>
+                        `).join('')}
+                        ${pG.map(g => `
+                            <div class="bg-[#111] border border-[#222] rounded flex flex-col md:flex-row shadow-[0_4px_20px_rgba(0,0,0,0.8)] overflow-hidden transition-transform hover:-translate-y-1">
+                                <img src="${g.image}" class="w-full md:w-32 h-32 object-cover grayscale brightness-75 border-r border-[#333]">
+                                <div class="p-4 w-full flex flex-col justify-between">
+                                    <div class="flex justify-between items-center mb-4 border-b border-[#333] pb-2 text-[10px] uppercase font-mono"><span class="text-gray-400">${g.email}</span><span class="font-bold text-green-500">GARDEN</div>
+                                    <button id="btn-g-${g.id}" onclick="Engine.verifyGarden('${g.id}')" class="outline-btn !border-green-500 !text-green-500 hover:!bg-green-900/20 !py-2 uppercase tracking-widest text-xs">Verify Bio</button>
                                 </div>
                             </div>
                         `).join('')}
                     </div>
                 `;
-        document.getElementById('worker-dashboard-content').innerHTML = html;
-        AppEngine.animateValue('wrk-wallet', Math.max(0, u.wallet - 20), u.wallet, 1000);
-
-        // Start one strict interval for uptime
-        AppState.timers['worker'] = setInterval(() => {
-          const diff = Math.floor((Date.now() - AppState.viewData.workerStartTime) / 1000);
-          const h = String(Math.floor(diff / 3600)).padStart(2, '0');
-          const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
-          const s = String(diff % 60).padStart(2, '0');
-          const el = document.getElementById('wrk-timer');
-          if (el) el.textContent = `${h}:${m}:${s}`;
-        }, 1000);
-
-        // Mount Leaflets
-        setTimeout(() => {
-          pending.forEach(w => {
-            const el = document.getElementById(`map-${w.id}`);
-            if (el && typeof L !== 'undefined') {
-              const map = L.map(el, { zoomControl: false, attributionControl: false }).setView([w.lat, w.lng], 16);
-              L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-              L.marker([w.lat, w.lng], {
-                icon: L.divIcon({ className: 'custom-icon', html: '<div class="w-2 h-2 rounded-full bg-[var(--gold)] shadow-[0_0_8px_#D4AF37]"></div>' })
-              }).addTo(map);
-              AppState.maps[`map-${w.id}`] = map;
-            }
-          });
-        }, 100);
+        document.getElementById('dashboardContent').innerHTML = html;
+        setTimeout(() => { animateValue(document.getElementById('anim-w-wal'), 0, u.wallet, 1000); }, 100);
       },
 
-      /* --- NGO VIEW --- */
       renderNGO: function () {
-        AppEngine.clearAllTimers();
-        const tix = Array.isArray(AppState.db.foodTickets) ? [...AppState.db.foodTickets].reverse() : [];
-
+        const tix = AppState.db.foodTickets.slice().reverse();
         let html = `
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <div class="card md:col-span-1 border-t-2 border-t-blue-500">
-                            <h2 class="text-lg text-white font-bold mb-4 uppercase tracking-widest border-b border-[#333] pb-2 text-center">Broadcast Need</h2>
-                            <form id="ngo-form" onsubmit="event.preventDefault(); Actions.createTicket();">
-                                <input id="ngo-item" type="text" placeholder="Resource Name (e.g., Rice, Blankets)" required class="text-sm">
-                                <input id="ngo-qty" type="number" placeholder="Required Quantity" min="1" required class="text-sm font-mono">
-                                <select id="ngo-time" required class="text-sm font-mono text-gray-400">
-                                    <option value="">-- Expiry Window --</option>
-                                    <option value="60">1 Hour</option>
-                                    <option value="120">2 Hours</option>
-                                    <option value="1440">24 Hours</option>
-                                </select>
-                                <button type="submit" class="gold-btn !bg-gradient-to-br !from-blue-600 !to-blue-800 !text-white text-sm uppercase tracking-widest mt-2">Open Block</button>
-                            </form>
-                        </div>
+                    <div class="card text-center mb-8 border-t-2 border-t-blue-500">
+                        <h2 class="text-sm font-bold text-blue-500 uppercase tracking-widest border-b border-[#333] pb-2 mb-6 text-center w-full">Broadcast Resource Demands</h2>
+                        <form onsubmit="event.preventDefault(); Engine.createTicket();" class="flex flex-col gap-4 max-w-sm mx-auto">
+                            <input id="ngo-item" type="text" placeholder="Resource Name..." required class="text-center font-mono">
+                            <input id="ngo-qty" type="number" placeholder="Volume Needed" min="1" required class="text-center font-mono">
+                            <select id="ngo-time" required class="text-center font-mono text-gray-400">
+                                <option value="">-- Active Window --</option>
+                                <option value="60">1 Hour TTL</option>
+                                <option value="120">2 Hours TTL</option>
+                                <option value="1440">24 Hours TTL</option>
+                            </select>
+                            <button type="submit" class="gold-btn !bg-blue-600 !text-white uppercase tracking-widest text-xs py-3">Transmit Ledger Block</button>
+                        </form>
+                    </div>
 
-                        <div class="card md:col-span-2">
-                            <h2 class="text-lg text-[var(--gold)] font-bold mb-4 uppercase tracking-widest border-b border-[#333] pb-2">Active Network Ledgers</h2>
-                            <div class="space-y-4 max-h-[500px] overflow-y-auto pr-2">
-                                ${tix.length === 0 ? '<p class="italic text-gray-600">No active ledgers.</p>' : tix.map(t => {
-          const statC = t.status === 'active' ? 'text-yellow-500' : (t.status === 'closed' ? 'text-green-500' : 'text-red-500');
+                    <div class="space-y-4">
+                        ${tix.length === 0 ? '<div class="text-center text-xs text-gray-500 italic">No tickets exist on protocol.</div>' : tix.map(t => {
+          let stat = t.status === 'open' ? '<span class="text-green-400 font-bold tracking-widest bg-green-900/40 px-2 py-1 rounded">OPEN</span>' :
+            (t.status === 'closed' ? '<span class="text-gray-500 font-bold tracking-widest bg-[#222] px-2 py-1 rounded">CLOSED</span>' :
+              '<span class="text-red-500 font-bold tracking-widest bg-red-900/40 px-2 py-1 rounded">EXPIRED</span>');
           return `
-                                    <div class="bg-[#111] border border-[#222] p-4 rounded-lg flex justify-between items-center">
-                                        <div>
-                                            <div class="text-lg font-bold text-white mb-1 uppercase tracking-wider">${t.item}</div>
-                                            <div class="text-xs uppercase font-bold ${statC} tracking-widest mb-1 border border-current rounded px-2 py-0.5 inline-block">${t.status}</div>
-                                            <div class="text-sm text-gray-400 mt-2 font-mono">REM: <span class="text-white">${t.remaining}</span> / ${t.required}</div>
-                                        </div>
-                                        <div class="text-right">
-                                            <div class="text-[10px] uppercase text-gray-500 mb-1">Window</div>
-                                            <div id="ngo-tmr-${t.id}" class="font-mono text-sm ${t.status === 'active' ? 'text-white' : 'text-gray-600'}">--:--:--</div>
-                                        </div>
+                            <div class="bg-[#111] border ${t.status === 'open' ? 'border-blue-900 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'border-[#222]'} p-4 rounded flex flex-col md:flex-row justify-between items-center text-center md:text-left gap-4">
+                                <div class="w-full">
+                                    <div class="text-lg font-bold text-white mb-2 uppercase tracking-widest">${t.item}</div>
+                                    <div class="flex items-center justify-center md:justify-start gap-4">
+                                        <div class="text-[10px]">${stat}</div>
+                                        <div class="font-mono text-xs text-gray-400">REM: ${t.remainingQty} <span class="opacity-50">/ ${t.requiredQty}</span></div>
                                     </div>
-                                    `;
+                                    ${t.status === 'expired' ? `<div class="text-[9px] text-red-500 italic mt-3 bg-red-950/30 p-1 border border-red-900 rounded">Time-to-Live elapsed. Network rejecting further inputs.</div>` : ''}
+                                </div>
+                                <div class="text-[9px] text-gray-600 font-mono tracking-widest whitespace-nowrap">ID: ${t.id}</div>
+                            </div>`;
         }).join('')}
-                            </div>
-                        </div>
                     </div>
                 `;
-        document.getElementById('ngo-dashboard-content').innerHTML = html;
-
-        // Sync Timers exactly once for the NGO view
-        const active = tix.filter(t => t.status === 'active');
-        if (active.length > 0) {
-          AppState.timers['ngo'] = setInterval(() => {
-            let needsRender = false;
-            const now = Date.now();
-            active.forEach(t => {
-              const diff = Math.floor((t.deadline - now) / 1000);
-              if (diff <= 0) {
-                t.status = 'expired';
-                needsRender = true;
-              } else {
-                const h = String(Math.floor(diff / 3600)).padStart(2, '0');
-                const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
-                const s = String(diff % 60).padStart(2, '0');
-                const el = document.getElementById(`ngo-tmr-${t.id}`);
-                if (el) el.textContent = `${h}:${m}:${s}`;
-              }
-            });
-            if (needsRender) { AppEngine.saveDB(); Views.renderNGO(); }
-          }, 1000);
-        }
+        document.getElementById('dashboardContent').innerHTML = html;
       },
 
-      /* --- ADMIN VIEW --- */
       renderAdmin: function () {
-        AppEngine.destroyAllCharts();
         const db = AppState.db;
+        let cCit = 0, cWrk = 0, cNgo = 0, tDist = 0, totCO2 = 0;
 
-        let sumCit = 0, sumWrk = 0, sumNgo = 0, sumDist = 0;
         db.users.forEach(u => {
-          if (u.role === 'citizen') sumCit++;
-          if (u.role === 'worker') sumWrk++;
-          if (u.role === 'ngo') sumNgo++;
-          if (u.role !== 'admin') sumDist += u.wallet;
+          if (u.role === 'citizen') { cCit++; totCO2 += u.co2; }
+          if (u.role === 'worker') cWrk++;
+          if (u.role === 'ngo') cNgo++;
+          if (u.role !== 'admin') tDist += u.wallet;
         });
 
-        const sumSub = db.wasteSubmissions.length;
-        const sumVer = db.wasteSubmissions.filter(w => w.status === 'verified').length;
-        const sumWgt = db.wasteSubmissions.filter(w => w.status === 'verified').reduce((a, b) => a + (b.weight || 0), 0);
+        const wArr = db.wasteSubmissions; const totVerW = wArr.filter(w => w.status === 'verified').length;
+        let totD = 0; db.foodTickets.forEach(t => totD += t.contributions.length);
+        const gArr = db.gardenUpdates; let totP = 0; gArr.forEach(g => totP += g.plantCount);
 
-        const sumFood = db.foodTickets.reduce((a, b) => a + b.contributions.length, 0); // Correctly count deliveries
-        const sumGard = db.gardenUpdates.length;
-
-        const reserveAmt = AppState.TOTAL_RESERVE - sumDist;
-        const reserveRatio = ((reserveAmt / AppState.TOTAL_RESERVE) * 100).toFixed(1);
-
-        let resCol = 'text-green-500';
-        if (reserveRatio < 40 && reserveRatio >= 20) resCol = 'text-yellow-500';
-        if (reserveRatio < 20) resCol = 'text-red-500';
+        const resVal = db.systemReserve - tDist;
+        const resRatio = ((resVal / db.systemReserve) * 100).toFixed(1);
 
         let html = `
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                         <div class="bg-[#111] p-4 rounded-xl border border-[#222]">
-                            <div class="text-[10px] text-gray-500 tracking-widest uppercase mb-1 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-[var(--gold)]"></span> Distributed ZC</div>
-                            <div class="text-2xl font-bold font-mono gold-text">${sumDist}</div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 text-center">
+                         <div class="bg-[#111] p-4 rounded border border-[#222]">
+                            <div class="text-[10px] text-gray-500 uppercase tracking-widest border-b border-[#333] pb-1 mb-2">Reserve Pool</div>
+                            <div class="text-xl font-bold font-mono text-green-500"><span id="anim-a-res">0</span> <span class="text-[10px] font-sans">(${resRatio}%)</span></div>
                         </div>
-                         <div class="bg-[#111] p-4 rounded-xl border border-[#222]">
-                            <div class="text-[10px] text-gray-500 tracking-widest uppercase mb-1 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-white"></span> Master Treasury</div>
-                            <div class="text-2xl font-bold font-mono ${resCol}">${reserveAmt} <span class="text-sm font-sans font-normal opacity-50">(${reserveRatio}%)</span></div>
+                         <div class="bg-[#111] p-4 rounded border border-[#222]">
+                            <div class="text-[10px] text-gray-500 uppercase tracking-widest border-b border-[#333] pb-1 mb-2">Distributed</div>
+                            <div class="text-xl font-bold font-mono text-[var(--gold)]" id="anim-a-dist">0</div>
                         </div>
-                         <div class="bg-[#111] p-4 rounded-xl border border-[#222]">
-                            <div class="text-[10px] text-gray-500 tracking-widest uppercase mb-1 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Verified Mass</div>
-                            <div class="text-2xl font-bold font-mono text-white">${sumWgt} <span class="text-sm font-sans font-normal">KG</span></div>
+                         <div class="bg-[#111] p-4 rounded border border-[#222]">
+                            <div class="text-[10px] text-gray-500 uppercase tracking-widest border-b border-[#333] pb-1 mb-2">Waste (Ver/Tot)</div>
+                            <div class="text-xl font-bold font-mono text-white">${totVerW} <span class="text-sm font-sans text-gray-500">/ ${wArr.length}</span></div>
                         </div>
-                         <div class="bg-[#111] p-4 rounded-xl border border-[#222]">
-                            <div class="text-[10px] text-gray-500 tracking-widest uppercase mb-1 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Active Entities</div>
-                            <div class="text-lg font-bold font-mono text-gray-300 tracking-widest"><span class="text-[10px] opacity-50 uppercase mr-1">C</span>${sumCit} <span class="text-[#333]">/</span> <span class="text-[10px] opacity-50 uppercase mr-1">W</span>${sumWrk} <span class="text-[#333]">/</span> <span class="text-[10px] opacity-50 uppercase mr-1">N</span>${sumNgo}</div>
+                         <div class="bg-[#111] p-4 rounded border border-[#222]">
+                            <div class="text-[10px] text-gray-500 uppercase tracking-widest border-b border-[#333] pb-1 mb-2">Bio-Impact (CO2)</div>
+                            <div class="text-xl font-bold font-mono text-green-500"><span id="anim-a-co2">0.0</span> <span class="text-xs">kg</span></div>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                         <div class="card lg:col-span-2">
-                            <h2 class="text-sm gold-text font-bold uppercase tracking-widest mb-4 border-b border-[#333] pb-2">Network Verification Volume (Dummy History Scale)</h2>
+                            <h2 class="text-[10px] text-gray-400 uppercase tracking-widest mb-4 border-b border-[#333] pb-2 text-center w-full font-bold">Protocol Volume</h2>
                             <div class="w-full h-64 relative"><canvas id="admin-bar"></canvas></div>
                         </div>
-                        <div class="card flex flex-col">
-                            <h2 class="text-sm gold-text font-bold uppercase tracking-widest mb-4 border-b border-[#333] pb-2">Treasury Integrity vs Circulation</h2>
-                            <div class="w-full h-48 relative mb-4 flex-1"><canvas id="admin-dough"></canvas></div>
-                            <div class="grid grid-cols-2 gap-2 mt-auto text-center border-t border-[#333] pt-4">
-                                <div><div class="text-[10px] text-gray-500 uppercase">Sub vs Ver</div><div class="font-mono font-bold text-white">${sumSub} / ${sumVer}</div></div>
-                                <div><div class="text-[10px] text-gray-500 uppercase">Aux Systems</div><div class="font-mono font-bold text-[#3b82f6]">${sumFood} / ${sumGard}</div></div>
-                            </div>
+                        <div class="card border-t-2 border-t-green-500">
+                            <h2 class="text-[10px] text-green-500 uppercase tracking-widest mb-4 border-b border-[#333] pb-2 text-center w-full font-bold">Bio-Nodes</h2>
+                            <div class="w-full h-64 relative"><canvas id="admin-dough"></canvas></div>
                         </div>
                     </div>
 
-                    <div class="card p-5">
-                         <h2 class="text-lg font-bold mb-4 uppercase tracking-widest text-[var(--gold)]">Protocol Top Nodes</h2>
-                         ${this.getLeaderboardHTML()}
-                    </div>
+                    ${this.renderLeaderboard()}
                 `;
-        document.getElementById('admin-dashboard-content').innerHTML = html;
+        document.getElementById('dashboardContent').innerHTML = html;
 
         setTimeout(() => {
-          Chart.defaults.color = '#777';
-          Chart.defaults.font.family = 'Inter';
+          animateValue(document.getElementById('anim-a-res'), 0, resVal, 1000);
+          animateValue(document.getElementById('anim-a-dist'), 0, tDist, 1000);
+          animateValue(document.getElementById('anim-a-co2'), 0, totCO2, 1000, true);
 
-          const ctxD = document.getElementById('admin-dough');
-          if (ctxD) {
-            AppState.charts['dc'] = new Chart(ctxD, {
-              type: 'doughnut',
-              data: { labels: ['Treasury ZC', 'Circulating'], datasets: [{ data: [reserveAmt, sumDist || 0.1], backgroundColor: ['#111', '#D4AF37'], borderColor: '#333', borderWidth: 1 }] },
-              options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { display: false } } }
-            });
-          }
-
+          Chart.defaults.color = '#777'; Chart.defaults.font.family = 'system-ui';
           const ctxB = document.getElementById('admin-bar');
           if (ctxB) {
-            AppState.charts['bc'] = new Chart(ctxB, {
+            AppState.charts['bC'] = new Chart(ctxB, {
               type: 'bar',
-              data: {
-                labels: ['Cycle 1', 'Cycle 2', 'Current'],
-                datasets: [
-                  { label: 'Submissions', data: [0, Math.floor(sumSub / 2), sumSub], backgroundColor: '#D4AF37', borderRadius: 4 },
-                  { label: 'Verified', data: [0, Math.floor(sumVer / 2), sumVer], backgroundColor: '#22C55E', borderRadius: 4 }
-                ]
-              },
-              options: { responsive: true, maintainAspectRatio: false, scales: { y: { grid: { color: '#222' } }, x: { grid: { display: false } } } }
+              data: { labels: ['P.Waste', 'V.Waste', 'Food Tx', 'Bio Logs'], datasets: [{ data: [wArr.length - totVerW, totVerW, totD, gArr.length], backgroundColor: ['#D4AF37', '#22C55E', '#3B82F6', '#10B981'], borderRadius: 4 }] },
+              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#222' } }, x: { grid: { display: false } } } }
+            });
+          }
+          const ctxD = document.getElementById('admin-dough');
+          if (ctxD) {
+            AppState.charts['dC'] = new Chart(ctxD, {
+              type: 'doughnut',
+              data: { labels: ['Reserve', 'Distributed'], datasets: [{ data: [resVal, tDist], backgroundColor: ['#10B981', '#D4AF37'], borderWidth: 0 }] },
+              options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom', labels: { color: '#999' } } } }
             });
           }
         }, 100);
+      },
+
+      renderLeaderboard: function () {
+        if (!AppState.db || !Array.isArray(AppState.db.users)) return '';
+        const cL = AppState.db.users.filter(x => x.role === 'citizen').sort((a, b) => b.wallet - a.wallet).slice(0, 5);
+        const wL = AppState.db.users.filter(x => x.role === 'worker').sort((a, b) => b.wallet - a.wallet).slice(0, 5);
+
+        const getRows = (arr) => arr.length === 0 ? '' : arr.map((x, i) => `<div class="flex justify-between p-2 border-b border-[#222] text-xs font-mono"><span class="${i === 0 ? 'text-[var(--gold)] font-bold' : ''}">${i === 0 ? '🥇' : (i + 1 + '.')} ${x.email.split('@')[0]}</span><span class="text-white">${x.wallet} ZC</span></div>`).join('');
+
+        return `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 card bg-[#0f0f0f]/50 border-t-0 p-6">
+                    <div><h3 class="text-[10px] uppercase text-gray-500 font-bold border-b border-[#333] pb-2 mb-2 text-center">Top Citizens</h3>${getRows(cL)}</div>
+                    <div><h3 class="text-[10px] uppercase text-gray-500 font-bold border-b border-[#333] pb-2 mb-2 text-center">Top Workers</h3>${getRows(wL)}</div>
+                </div>`;
       }
     };
 
-    /* ==============================================
-       ACTIONS CONTROLLER
-       ============================================== */
-    const Actions = {
-      submitWaste: function () {
-        const img = AppState.viewData.citizenImg.waste;
-        if (!img) return;
-
-        const btn = document.getElementById('cit-w-btn');
-        btn.innerHTML = `<span class="animate-pulse">Locking Geo...</span>`;
-        btn.disabled = true;
-
-        AppEngine.getGeo((loc) => {
-          AppState.db.wasteSubmissions.push({
-            id: Date.now().toString(), image: img, lat: loc.lat, lng: loc.lng, timestamp: loc.timestamp, status: "pending", weight: 0, userEmail: AppState.currentUser.email, workerEmail: null
-          });
-          const u = AppEngine.getUserByEmail(AppState.currentUser.email);
-          u.wasteCount++;
-          AppEngine.saveDB();
-          Views.renderCitizen();
-          alert("Waste geo-packet injected into processing queue.");
-        });
-      },
-
-      submitFood: function () {
-        const img = AppState.viewData.citizenImg.food;
-        const tixId = document.getElementById('cit-f-sel').value;
-        const qtyVal = parseFloat(document.getElementById('cit-f-qty').value);
-
-        if (!img) return alert("ERR: Evidence upload mandatory.");
-        if (!tixId) return alert("ERR: NGO ledger block unregistered.");
-        if (isNaN(qtyVal) || qtyVal <= 0) return alert("ERR: Quantity invalid.");
-
-        const ticket = AppState.db.foodTickets.find(t => t.id === tixId);
-        if (!ticket || ticket.status !== 'active') return alert("ERR: Ticket closed or invalid.");
-        if (qtyVal > ticket.remaining) return alert(`ERR: Value exceeds required margin (${ticket.remaining}kg max).`);
-
-        const btn = document.getElementById('cit-f-btn');
-        btn.innerHTML = `<span class="animate-pulse">Locking Geo...</span>`;
-        btn.disabled = true;
-
-        AppEngine.getGeo((loc) => {
-          ticket.remaining -= qtyVal;
-          ticket.contributions.push({ user: AppState.currentUser.email, qty: qtyVal, lat: loc.lat, lng: loc.lng, image: img, timestamp: loc.timestamp });
-          if (ticket.remaining <= 0) { ticket.remaining = 0; ticket.status = 'closed'; }
-
-          const u = AppEngine.getUserByEmail(AppState.currentUser.email);
-          u.foodCount++;
-          AppEngine.saveDB();
-          Views.renderCitizen();
-          alert("Donation block sealed properly to ledger.");
-        });
-      },
-
-      submitGarden: function () {
-        const img = AppState.viewData.citizenImg.garden;
-        if (!img) return;
-
-        const btn = document.getElementById('cit-g-btn');
-        btn.innerText = "Processing...";
-        btn.disabled = true;
-
-        AppState.db.gardenUpdates.push({ id: Date.now().toString(), image: img, userEmail: AppState.currentUser.email, timestamp: Date.now() });
-        const u = AppEngine.getUserByEmail(AppState.currentUser.email);
-        u.gardenCount++;
-        AppEngine.saveDB();
-        Views.renderCitizen();
-        alert("Bio-state recorded to protocol.");
-      },
-
-      verifyWaste: function (wId) {
-        const waste = AppState.db.wasteSubmissions.find(w => w.id === wId);
-        if (!waste || waste.status === 'verified') return;
-
-        const wtStr = document.getElementById(`wt-${wId}`).value;
-        const weight = parseFloat(wtStr);
-        if (isNaN(weight) || weight <= 0) return alert("ERR: Accurate weight reading required to process block.");
-
-        waste.status = 'verified';
-        waste.weight = weight;
-        waste.workerEmail = AppState.currentUser.email;
-
-        const cit = AppEngine.getUserByEmail(waste.userEmail);
-        const wrk = AppEngine.getUserByEmail(AppState.currentUser.email);
-
-        cit.wallet += 10; cit.co2 += (weight * 0.2);
-        wrk.wallet += 15; wrk.co2 += (weight * 0.1);
-
-        AppEngine.saveDB();
-        Views.renderWorker();
-        alert("Target block verified. Resources dynamically allocated.");
-      },
-
-      createTicket: function () {
-        const item = document.getElementById('ngo-item').value.trim();
-        const qty = parseFloat(document.getElementById('ngo-qty').value);
-        const mins = parseInt(document.getElementById('ngo-time').value);
-
-        if (!item || isNaN(qty) || qty <= 0 || isNaN(mins)) return;
-
-        AppState.db.foodTickets.push({
-          id: Date.now().toString(), item, required: qty, remaining: qty,
-          deadline: Date.now() + (mins * 60 * 1000), status: 'active', contributions: []
-        });
-
-        AppEngine.saveDB();
-        Views.renderNGO();
-        alert("Broadcast successfully transmitted to global citizen network.");
-      }
-    };
-
-    /* ==============================================
-       START ENGINES
-       ============================================== */
-    window.addEventListener('DOMContentLoaded', () => { AppEngine.init(); });
-
+    window.onload = () => { Engine.init(); };
   </script>
 </body>
 
