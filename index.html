@@ -1,1004 +1,1279 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Zenith Gold X™ - Enterprise SPA</title>
-  <!-- Tailwind CSS -->
+  <title>Zenith Gold X</title>
+
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Leaflet OS Map -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 
   <style>
-    :root {
-      --bg: #0f0f0f;
-      --card: #1a1a1a;
-      --gold: #D4AF37;
-      --gold-hover: #b8860b;
-    }
-
     body {
-      background-color: var(--bg);
-      color: #ffffff;
-      font-family: system-ui, -apple-system, sans-serif;
-      margin: 0;
-      padding: 0;
-      min-height: 100vh;
+      font-family: 'Inter', sans-serif;
+      background: #0f0f0f;
+      color: white;
       overflow-x: hidden;
     }
 
-    /* --- GPU ANIMATIONS & EFFECTS --- */
-    @keyframes customGlow {
-      0% {
-        transform: scale(1) translate(0px, 0px);
-        opacity: 0.15;
-      }
-
-      33% {
-        transform: scale(1.05) translate(30px, -20px);
-        opacity: 0.2;
-      }
-
-      66% {
-        transform: scale(0.95) translate(-20px, 20px);
-        opacity: 0.1;
-      }
-
-      100% {
-        transform: scale(1) translate(0px, 0px);
-        opacity: 0.15;
-      }
+    /* Premium wave background */
+    #waveCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -2;
     }
 
-    .animate-glow {
-      animation: customGlow 20s infinite ease-in-out;
-      will-change: transform, opacity;
+    /* Particle layer */
+    #particleCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
     }
 
-    @keyframes floatUp {
-      0% {
-        transform: translateY(100vh) rotate(0deg);
-        opacity: 0;
-      }
-
-      10% {
-        opacity: 0.8;
-      }
-
-      90% {
-        opacity: 0.8;
-      }
-
-      100% {
-        transform: translateY(-100px) rotate(360deg);
-        opacity: 0;
-      }
-    }
-
-    .particle {
-      position: absolute;
-      background: linear-gradient(135deg, var(--gold), transparent);
-      border-radius: 50%;
-      pointer-events: none;
-      will-change: transform;
-    }
-
-    .shimmer-text {
-      background: linear-gradient(90deg, #D4AF37 0%, #fff 50%, #D4AF37 100%);
-      background-size: 200% auto;
-      color: transparent;
-      -webkit-background-clip: text;
-      background-clip: text;
-      animation: textShimmer 3s linear infinite;
-    }
-
-    @keyframes textShimmer {
-      to {
-        background-position: 200% center;
-      }
-    }
-
-    /* --- UI COMPONENTS --- */
     .card {
-      background-color: var(--card);
-      border: 1px solid rgba(212, 175, 55, 0.15);
-      border-radius: 12px;
-      padding: 24px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-      position: relative;
+      background: rgba(26, 26, 26, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      box-shadow: 0 0 20px rgba(212, 175, 55, 0.2);
+    }
+
+    .gold {
+      color: #D4AF37;
     }
 
     .gold-btn {
-      background: linear-gradient(135deg, var(--gold), var(--gold-hover));
-      color: #000;
-      font-weight: 600;
-      padding: 12px 24px;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-      width: 100%;
-      transition: all 0.2s ease;
+      background: linear-gradient(135deg, #FFDF73 0%, #D4AF37 50%, #B89222 100%);
+      color: black;
+      font-weight: 700;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      box-shadow: 0 4px 15px rgba(212, 175, 55, 0.25);
     }
 
-    .gold-btn:hover:not(:disabled) {
-      opacity: 0.9;
-      box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
-      transform: translateY(-1px);
+    .gold-btn:hover {
+      box-shadow: 0 0 25px rgba(212, 175, 55, 0.6);
+      transform: translateY(-2px);
     }
 
-    .gold-btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-      background: #444;
-      color: #888;
+    /* Custom premium scrollbar */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
     }
 
-    .outline-btn {
-      border: 1px solid var(--gold);
-      color: var(--gold);
-      background: transparent;
-      padding: 12px 24px;
-      border-radius: 8px;
-      cursor: pointer;
-      width: 100%;
-      transition: all 0.2s ease;
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 10px;
     }
 
-    .outline-btn:hover:not(:disabled) {
-      background: rgba(212, 175, 55, 0.1);
-      box-shadow: 0 0 10px rgba(212, 175, 55, 0.2);
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(212, 175, 55, 0.4);
+      border-radius: 10px;
     }
 
-    .outline-btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-      border-color: #555;
-      color: #777;
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(212, 175, 55, 0.8);
     }
 
-    input,
-    select {
-      width: 100%;
-      padding: 12px;
-      background: #111;
-      border: 1px solid #333;
-      color: white;
-      border-radius: 8px;
-      margin-bottom: 16px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    input:focus,
-    select:focus {
-      border-color: var(--gold);
-    }
-
-    .mod-section {
+    .hidden {
       display: none;
-    }
-
-    .leaflet-container {
-      background: #111;
-      border-radius: 8px;
-      border: 1px solid #333;
-      z-index: 1;
-    }
-
-    .fade-in {
-      animation: smoothFade 0.5s ease-out forwards;
-    }
-
-    @keyframes smoothFade {
-      from {
-        opacity: 0;
-        transform: translateY(5px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
     }
   </style>
 </head>
 
-<body class="bg-black text-white m-0 p-0 overflow-x-hidden">
+<body>
 
-  <!-- PREMIUM BACKGROUND -->
-  <div class="fixed inset-0 -z-10 overflow-hidden">
-    <!-- Glow Orbs -->
-    <div
-      class="absolute w-[900px] h-[900px] bg-yellow-500/10 rounded-full blur-[140px] animate-glow top-[-200px] left-[-200px]">
-    </div>
-    <div
-      class="absolute w-[800px] h-[800px] bg-yellow-500/10 rounded-full blur-[130px] animate-glow bottom-[-200px] right-[-200px]"
-      style="animation-delay: -10s;"></div>
+  <canvas id="waveCanvas"></canvas>
+  <canvas id="particleCanvas"></canvas>
 
-    <!-- CSS Floating Particles -->
-    <div class="absolute inset-0 pointer-events-none" id="particles-wrap">
-      <div class="particle w-2 h-2 left-[10%]" style="animation: floatUp 15s infinite linear; animation-delay: 0s;">
-      </div>
-      <div class="particle w-3 h-3 left-[25%]" style="animation: floatUp 25s infinite linear; animation-delay: 5s;">
-      </div>
-      <div class="particle w-1.5 h-1.5 left-[40%]" style="animation: floatUp 18s infinite linear; animation-delay: 2s;">
-      </div>
-      <div class="particle w-2.5 h-2.5 left-[60%]" style="animation: floatUp 22s infinite linear; animation-delay: 8s;">
-      </div>
-      <div class="particle w-2 h-2 left-[75%]" style="animation: floatUp 16s infinite linear; animation-delay: 1s;">
-      </div>
-      <div class="particle w-3 h-3 left-[85%]" style="animation: floatUp 20s infinite linear; animation-delay: 6s;">
-      </div>
-      <div class="particle w-1 h-1 left-[95%]" style="animation: floatUp 14s infinite linear; animation-delay: 3s;">
-      </div>
-      <div class="particle w-2 h-2 left-[5%]" style="animation: floatUp 26s infinite linear; animation-delay: 11s;">
-      </div>
-      <div class="particle w-3 h-3 left-[35%]" style="animation: floatUp 19s infinite linear; animation-delay: 4s;">
-      </div>
-      <div class="particle w-1.5 h-1.5 left-[50%]" style="animation: floatUp 21s infinite linear; animation-delay: 9s;">
-      </div>
-    </div>
+  <!-- Persistent Logo -->
+  <div class="fixed top-6 left-6 z-50 flex items-center gap-3">
+    <img src="logo.png" class="w-10 h-10 rounded" />
+    <h1 class="text-yellow-400 font-bold tracking-widest text-lg">
+      ZENITH GOLD X
+    </h1>
   </div>
 
-  <!-- LOGIN VIEW -->
-  <div id="loginView" class="fixed inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm z-50">
-    <div
-      class="w-full max-w-md bg-[#1a1a1a] p-8 rounded-2xl shadow-2xl border border-yellow-500/30 text-center fade-in">
-      <img src="logo.png" alt="Logo"
-        class="w-24 h-24 mx-auto mb-4 rounded-full border border-yellow-500/50 object-cover bg-black shadow-[0_0_30px_rgba(212,175,55,0.2)]"
-        onerror="this.style.display='none'">
-      <h1 class="text-2xl font-bold uppercase tracking-widest shimmer-text mb-2">Gold X Secure Access</h1>
-      <p class="text-[10px] text-gray-400 mb-8 tracking-widest uppercase pb-4 border-b border-[#333]">Redefining Civic
-        Action Through Verified Intelligence</p>
-
-      <div id="login-error"
-        class="hidden text-red-500 bg-red-900/20 border border-red-500/50 p-2 rounded text-sm mb-4 font-mono"></div>
-
-      <form onsubmit="event.preventDefault(); Engine.login();">
-        <input type="email" id="loginEmail" placeholder="Identity Node (email)" required autocomplete="off"
-          class="text-center font-mono">
-        <input type="password" id="loginPass" placeholder="Passcode" required autocomplete="off"
-          class="text-center font-mono">
-        <button type="submit" class="gold-btn uppercase tracking-widest mt-2 py-3 text-sm">Authorize Session</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- MAIN APP VIEW -->
-  <div id="appView" class="hidden min-h-screen w-full relative z-10 flex flex-col">
-
-    <!-- NAVBAR -->
-    <div class="w-full bg-[#111]/80 backdrop-blur-md p-4 flex justify-between items-center border-b border-[#333]">
-      <div class="flex items-center gap-4">
-        <img src="logo.png" alt="Logo"
-          class="w-10 h-10 rounded-full border border-[var(--gold)] object-cover bg-black hidden sm:block"
-          onerror="this.style.display='none'">
-        <div>
-          <div class="text-yellow-400 font-bold uppercase tracking-widest text-lg shimmer-text">ZENITH GOLD X™</div>
-          <div id="header-role" class="text-[10px] text-gray-500 uppercase tracking-widest">---</div>
-        </div>
-      </div>
-      <div class="flex items-center gap-4">
-        <div class="text-right hidden sm:block">
-          <div class="text-[10px] text-gray-400 uppercase">Active Node</div>
-          <div id="header-email" class="text-sm font-bold text-white font-mono">---</div>
-        </div>
-        <button onclick="Engine.logout()"
-          class="outline-btn !py-2 !px-4 text-xs tracking-widest uppercase !w-auto !border-red-500/50 !text-red-400 hover:!bg-red-500/10 hover:!border-red-500">Logout</button>
-      </div>
-    </div>
-
-    <!-- GLOBAL TICKETS BANNER -->
-    <div id="ticket-banner" class="w-full bg-blue-900/20 border-b border-blue-500/30 hidden"></div>
-
-    <!-- DASHBOARD CONTAINER -->
-    <div id="dashboardContent" class="w-full p-6 transition-opacity duration-500 flex-1"></div>
-
-  </div>
-
-  <!-- NGO DONATION MODAL -->
-  <div id="donateModal" class="fixed inset-0 flex items-center justify-center bg-black/90 z-[60] hidden">
-    <div class="w-full max-w-md card mx-4 text-center border-blue-500/50">
-      <h3 class="text-lg text-blue-400 font-bold mb-4 uppercase tracking-widest border-b border-[#333] pb-2">Issue Food
-        Donation</h3>
-      <p id="modal-ticket-info" class="text-xs mb-4 text-gray-300 font-mono"></p>
-      <input type="hidden" id="modal-ticket-id">
-      <input type="number" id="modal-qty" placeholder="Quantity Supplying (kg/items)" min="1"
-        class="text-center font-mono">
-
-      <input type="file" id="modal-file" accept="image/*" class="hidden" onchange="Engine.handleModalImage(this)">
-      <div
-        class="bg-black border border-[#333] rounded h-32 w-full mb-4 flex items-center justify-center cursor-pointer hover:border-blue-500 overflow-hidden transition-colors"
-        onclick="document.getElementById('modal-file').click()">
-        <img id="modal-img-preview" class="w-full h-full object-cover hidden">
-        <div id="modal-placeholder" class="text-blue-500 flex flex-col items-center">
-          <span class="text-2xl">📸</span><span class="text-[10px] uppercase tracking-widest mt-1">Required Photo</span>
-        </div>
-      </div>
-      <div class="flex gap-2">
-        <button onclick="Engine.closeDonateModal()"
-          class="outline-btn !border-gray-600 !text-gray-400 hover:!text-white">Cancel</button>
-        <button id="modal-submit-btn" disabled onclick="Engine.submitFoodDonation()"
-          class="gold-btn !bg-gradient-to-br !from-blue-600 !to-blue-800 !text-white !border-none">Submit Cargo</button>
-      </div>
-    </div>
-  </div>
+  <div id="app" class="relative z-10 w-full min-h-screen"></div>
 
   <script>
-    // --- ANIMATED COUNTER ENGINE ---
-    function animateValue(obj, start, end, duration, isFloat = false) {
-      let startTimestamp = null;
-      const step = (timestamp) => {
-        if (!startTimestamp) startTimestamp = timestamp;
-        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-        const current = Math.floor(progress * (end - start) + start);
-        obj.innerHTML = isFloat ? (progress * (end - start) + start).toFixed(1) : current;
-        if (progress < 1) window.requestAnimationFrame(step);
+    /* =========================
+       ZGX MASTER DATABASE ENGINE
+    ========================= */
+
+    const DB_KEY = "ZGX_DB";
+
+    /* Initialize Database */
+    function initializeDB() {
+
+      const db = {
+        users: [
+          { id: 1, email: "tansil@admin", password: "123", role: "admin", wallet: 0 },
+          { id: 2, email: "tansil@user", password: "123", role: "citizen", wallet: 0, co2: 0, gardenStage: 0 },
+          { id: 3, email: "tansil@worker", password: "123", role: "worker", wallet: 0, completed: 0 },
+          { id: 4, email: "tansil@ngo", password: "123", role: "ngo", wallet: 0 }
+        ],
+
+        wasteSubmissions: [],
+        foodTickets: [],
+        withdrawals: [],
+        gardens: [],
+        reserve: 50000
       };
-      window.requestAnimationFrame(step);
+
+      localStorage.setItem(DB_KEY, JSON.stringify(db));
+      return db;
     }
 
-    const AppState = {
-      db: null,
-      session: null,
-      charts: {},
-      maps: {},
-      tempImg: null,
-      modalImg: null
-    };
+    /* Load Database Safely */
+    function getDB() {
 
-    const Engine = {
-      init: function () {
-        this.initDB();
-        this.checkSession();
-        this.startGlobalTicks();
-      },
+      let raw = localStorage.getItem(DB_KEY);
 
-      initDB: function () {
-        try {
-          AppState.db = JSON.parse(localStorage.getItem("zgx_db"));
-        } catch (e) { }
+      if (!raw) {
+        return initializeDB();
+      }
 
-        if (!AppState.db || !Array.isArray(AppState.db.users)) {
-          AppState.db = {
-            users: [
-              { email: "tansil@admin", password: "123", role: "admin", wallet: 0, co2: 0 },
-              { email: "tansil@user", password: "123", role: "citizen", wallet: 0, co2: 0 },
-              { email: "tansil@worker", password: "123", role: "worker", wallet: 0, co2: 0, dailyCount: 0, lastActiveDate: "" },
-              { email: "tansil@ngo", password: "123", role: "ngo", wallet: 0, co2: 0 }
-            ],
-            wasteSubmissions: [],
-            foodTickets: [],
-            gardenUpdates: [],
-            withdrawals: [],
-            systemReserve: 50000
-          };
-          this.saveDB();
+      try {
+
+        const db = JSON.parse(raw);
+
+        if (!db.users) db.users = [];
+        if (!db.wasteSubmissions) db.wasteSubmissions = [];
+        if (!db.foodTickets) db.foodTickets = [];
+        if (!db.withdrawals) db.withdrawals = [];
+        if (!db.gardens) db.gardens = [];
+
+        return db;
+
+      } catch {
+
+        return initializeDB();
+
+      }
+    }
+
+    /* Save Database */
+    function saveDB(db) {
+      localStorage.setItem(DB_KEY, JSON.stringify(db));
+    }
+
+    /* =========================
+       SESSION ENGINE
+    ========================= */
+
+    let currentUser = null;
+
+    try {
+      currentUser = JSON.parse(localStorage.getItem("ZGX_SESSION"));
+    } catch {
+      currentUser = null;
+    }
+
+    function setSession(user) {
+      localStorage.setItem("ZGX_SESSION", JSON.stringify(user));
+      currentUser = user;
+    }
+
+    function clearSession() {
+      localStorage.removeItem("ZGX_SESSION");
+      currentUser = null;
+    }
+
+    /* =========================
+       HAVERSINE DISTANCE (meters)
+    ========================= */
+    function getDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+      const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) *
+        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      return R * c;
+    }
+
+    /* =========================
+       BASIC ROUTER
+    ========================= */
+    function render() {
+      if (!currentUser) {
+        renderLogin();
+      } else {
+        renderDashboard();
+      }
+    }
+
+    function renderLogin() {
+      document.getElementById("app").innerHTML = `
+  <div class="min-h-screen flex items-center justify-center">
+    <div class="card p-10 rounded-xl w-full max-w-md shadow-xl border border-yellow-500/30">
+      <h2 class="text-3xl font-bold mb-6 gold text-center uppercase tracking-widest">Zenith Gold X</h2>
+
+      <input id="email" placeholder="Email (e.g. tansil@user)"
+        class="w-full p-3 mb-4 rounded bg-black border border-gray-700 outline-none focus:border-yellow-500"/>
+
+      <input id="password" type="password" placeholder="Password (123)"
+        class="w-full p-3 mb-6 rounded bg-black border border-gray-700 outline-none focus:border-yellow-500"/>
+
+      <button onclick="login()"
+        class="gold-btn w-full py-3 rounded uppercase tracking-widest">Login</button>
+
+      <p id="loginError" class="text-red-500 text-center mt-4 hidden">
+        Invalid Credentials
+      </p>
+
+      <div class="text-gray-500 text-xs mt-6 text-center font-mono">
+        Demo Accounts:<br/>
+        tansil@admin | tansil@user<br/>
+        tansil@worker | tansil@ngo<br/>
+        Password: 123
+      </div>
+    </div>
+  </div>
+  `;
+    }
+
+    /* =========================
+       LOGIN SYSTEM
+    ========================= */
+
+    function login() {
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value.trim();
+
+      const db = getDB();
+
+      const user = db.users.find(
+        u => u.email === email && u.password === password
+      );
+
+      if (!user) {
+
+        const error = document.getElementById("loginError");
+
+        if (error) {
+          error.classList.remove("hidden");
         }
-      },
 
-      saveDB: function () { localStorage.setItem("zgx_db", JSON.stringify(AppState.db)); },
+        return;
 
-      checkSession: function () {
-        const stored = localStorage.getItem("zgx_session");
-        if (stored) {
+      }
+
+      setSession(user);
+
+      render();
+
+    }
+
+    /* =========================
+       LOGOUT
+    ========================= */
+
+    function logout() {
+
+      clearSession();
+
+      render();
+
+    }
+
+    function updateBanner() {
+      const db = getDB();
+      const active = db.foodTickets.some(t => t.status === "open");
+      let banner = document.getElementById("globalNgoBanner");
+
+      let dbUpdated = false;
+      const now = Date.now();
+      db.foodTickets.forEach(t => {
+        if (t.status === 'open' && t.expiry && now > t.expiry) {
+          t.status = 'expired';
+          dbUpdated = true;
+        }
+      });
+      if (dbUpdated) saveDB(db);
+
+      if (active && currentUser) {
+        if (!banner) {
+          banner = document.createElement("div");
+          banner.id = "globalNgoBanner";
+          banner.className = "w-full bg-blue-900/90 text-blue-200 text-xs text-center py-2 font-mono uppercase tracking-widest border-b border-blue-500/50 fixed top-0 z-40 shadow-[0_0_15px_rgba(59,130,246,0.5)]";
+          banner.innerHTML = "Active NGO Asset Demands on Network! Support logistics to earn ZC.";
+          document.body.appendChild(banner);
+        }
+      } else {
+        if (banner) banner.remove();
+      }
+    }
+
+    function renderDashboard() {
+      updateBanner();
+
+      if (!currentUser) {
+        let banner = document.getElementById("globalNgoBanner");
+        if (banner) banner.remove();
+        renderLogin();
+        return;
+      }
+
+      if (currentUser.role === "citizen") renderCitizen();
+      if (currentUser.role === "worker") renderWorker();
+      if (currentUser.role === "ngo") renderNGO();
+      if (currentUser.role === "admin") renderAdmin();
+    }
+
+    /* =========================
+       CITIZEN ENGINE
+    ========================= */
+    function renderCitizen() {
+      const db = getDB();
+      const user = db.users.find(u => u.id === currentUser.id);
+
+      const leaderboard = [...db.users]
+        .filter(u => u.role === "citizen")
+        .sort((a, b) => b.wallet - a.wallet);
+
+      document.getElementById("app").innerHTML = `
+  <div class="p-10 max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-8 border-b border-gray-800 pb-4">
+      <div>
+        <h2 class="text-2xl gold font-bold uppercase tracking-widest">Citizen Dashboard</h2>
+        <p class="text-xs text-gray-500 font-mono mt-1">Node: ${user.email}</p>
+      </div>
+      <button onclick="logout()" class="border border-red-500/50 text-red-500 px-4 py-2 rounded uppercase tracking-widest text-xs hover:bg-red-500/10 transition-colors">Logout</button>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-6 mb-10">
+      <div class="card p-6 rounded shadow-lg border-l-2 border-yellow-500">
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Z Coins</div>
+        <div class="text-4xl gold font-mono">${user.wallet}</div>
+      </div>
+      <div class="card p-6 rounded shadow-lg border-l-2 border-green-500">
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">CO₂ Saved</div>
+        <div class="text-4xl gold font-mono">${user.co2 || 0}</div>
+      </div>
+      <div class="card p-6 rounded shadow-lg border-l-2 border-blue-500">
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Garden Stage</div>
+        <div class="text-4xl gold font-mono">${user.gardenStage || 0}/3</div>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+        <div>
+            <div class="card p-6 rounded mb-8 shadow-lg border border-gray-800">
+              <h3 class="gold mb-4 uppercase tracking-widest font-bold">Offer Exchange</h3>
+              <div class="flex flex-col gap-3">
+                  <button onclick="redeemVoucher()" class="gold-btn px-4 py-3 rounded text-sm uppercase">
+                    Redeem 200 Z Coins → Voucher
+                  </button>
+                  <button onclick="redeemUPI()" class="border border-yellow-500 text-yellow-500 hover:bg-yellow-500/10 px-4 py-3 rounded text-sm uppercase transition-colors">
+                    Redeem 500 Z Coins → UPI Transfer
+                  </button>
+              </div>
+            </div>
+
+            <div class="card p-6 rounded mb-8 shadow-lg border border-gray-800">
+              <h3 class="gold mb-4 uppercase tracking-widest font-bold">Withdraw Z Coins</h3>
+              <input type="number" id="withdrawAmount"
+                placeholder="Enter amount (Min 100)"
+                class="mb-4 w-full p-3 bg-black border border-gray-700 rounded font-mono text-sm outline-none focus:border-yellow-500"/>
+              <button onclick="requestWithdrawal()" class="gold-btn w-full px-6 py-3 rounded uppercase text-sm font-bold">
+                Request Withdrawal
+              </button>
+            </div>
+
+            <div class="card p-6 rounded mb-8 shadow-lg border border-gray-800">
+              <h3 class="gold mb-4 uppercase tracking-widest font-bold">Leaderboard</h3>
+              ${leaderboard.map((u, i) => `
+                  <div class="p-3 rounded mb-2 font-mono text-sm flex justify-between ${i === 0 ? 'bg-[#D4AF37] text-black font-semibold' : 'border border-gray-800 bg-gray-900'}">
+                    <span>#${i + 1} ${u.email.split('@')[0]}</span>
+                    <span>${u.wallet} ZC</span>
+                  </div>
+                `).join("")
+        }
+            </div>
+        </div>
+
+        <div>
+            <div class="card p-6 rounded mb-8 shadow-lg border border-blue-500/30">
+              <h3 class="gold mb-4 uppercase tracking-widest font-bold">Food Logistics</h3>
+              ${db.foodTickets.filter(t => t.status === 'open').length === 0
+          ? '<p class="text-xs text-gray-500 italic mb-4">No open NGO ledgers.</p>'
+          : `<select id="foodLedger" class="mb-3 w-full p-3 bg-black border border-gray-700 rounded text-xs text-gray-300 outline-none focus:border-yellow-500">
+                     <option value="">-- Select Active Ledger --</option>
+                     ${db.foodTickets.filter(t => t.status === 'open').map(t => `<option value="${t.id}">${t.item} (Needs ${t.remainingQty})</option>`).join('')}
+                   </select>
+                   <input type="number" id="foodQty" placeholder="Volume to Transfer" class="mb-4 w-full p-3 bg-black border border-gray-700 rounded text-xs font-mono outline-none focus:border-yellow-500"/>
+                   <button onclick="submitFood()" class="bg-blue-600 hover:bg-blue-700 transition-colors text-white w-full px-6 py-3 rounded uppercase text-sm font-bold shadow-lg">
+                     Transfer Assets
+                   </button>`
+        }
+            </div>
+
+            <div class="card p-6 rounded mb-8 shadow-lg border border-green-500/30">
+              <h3 class="gold mb-4 uppercase tracking-widest font-bold">Terrace Garden</h3>
+              <div class="flex gap-4 mb-4">
+                <input type="number" id="plantCount" min="0" placeholder="Plants" class="w-1/2 p-2 bg-black border border-gray-700 rounded text-xs outline-none focus:border-yellow-500"/>
+                <input type="number" id="treeCount" min="0" placeholder="Trees" class="w-1/2 p-2 bg-black border border-gray-700 rounded text-xs outline-none focus:border-yellow-500"/>
+              </div>
+              <input type="file" id="gardenPhoto"
+                class="mb-4 w-full p-2 bg-black border border-gray-700 rounded text-xs"/>
+              <button onclick="updateGarden()" class="bg-green-600 hover:bg-green-700 transition-colors text-white w-full px-6 py-3 rounded uppercase text-sm font-bold">
+                Submit Garden Update
+              </button>
+              <div class="mt-4 text-xs text-gray-500 font-mono">
+                3 successful updates required.<br/>20 days required between updates.
+              </div>
+            </div>
+
+            <div class="card p-6 rounded shadow-lg border border-yellow-500/30">
+              <h3 class="gold mb-4 uppercase tracking-widest font-bold">Upload Waste</h3>
+              <input type="file" id="wastePhoto"
+                class="mb-4 w-full p-2 bg-black border border-gray-700 rounded text-xs"/>
+              <div id="map" style="height:300px;" class="mb-4 rounded border border-gray-800"></div>
+              <button id="wasteSubmitBtn" onclick="submitWaste()" class="gold-btn w-full px-6 py-3 rounded uppercase text-sm font-bold">
+                Capture Location & Submit
+              </button>
+            </div>
+        </div>
+    </div>
+  </div>
+  `;
+      initializeMap();
+    }
+
+    let map = null;
+    let currentLat = null;
+    let currentLng = null;
+
+    function initializeMap() {
+      try {
+        const mapContainer = document.getElementById('map');
+        if (!mapContainer) return;
+
+        if (map) {
+          map.remove();
+          map = null;
+        }
+        map = L.map('map').setView([20.5937, 78.9629], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        navigator.geolocation.getCurrentPosition(position => {
+          currentLat = position.coords.latitude;
+          currentLng = position.coords.longitude;
+          if (map) {
+            map.setView([currentLat, currentLng], 15);
+            L.marker([currentLat, currentLng]).addTo(map)
+              .bindPopup("Your Location")
+              .openPopup();
+          }
+        }, error => {
+          console.error("Geolocation Error:", error);
+          alert("Location permission required to use map features.");
+        });
+      } catch (e) {
+        console.error("Map Initialization Error:", e);
+      }
+    }
+
+    function submitWaste() {
+      try {
+        const photo = document.getElementById("wastePhoto").files[0];
+        if (!photo) { alert("Please upload waste photo."); return; }
+        if (photo.size < 1024 * 10) { alert("AI Confidence Low: File size < 10kb. Rejected."); return; }
+        if (currentLat === null || currentLng === null) { alert("Location not captured yet. Please allow permissions."); return; }
+
+        const db = getDB();
+        const pendingCheck = db.wasteSubmissions.find(s => s.userId === currentUser.id && s.status === "pending");
+        if (pendingCheck) { alert("You already have a pending submission."); return; }
+
+        const btn = document.getElementById("wasteSubmitBtn");
+        if (btn) {
+          btn.innerHTML = "Verifying... (AI 92%)";
+          btn.disabled = true;
+        }
+
+        setTimeout(() => {
           try {
-            const email = JSON.parse(stored);
-            const user = AppState.db.users.find(u => u.email === email);
-            if (user) {
-              AppState.session = user;
-              this.launchApp();
-              return;
+            const currentDb = getDB();
+            currentDb.wasteSubmissions.push({
+              id: Date.now(),
+              userId: currentUser.id,
+              lat: currentLat,
+              lng: currentLng,
+              status: "pending"
+            });
+            saveDB(currentDb);
+
+            alert("Waste submitted successfully. Waiting for worker verification.");
+            renderCitizen();
+          } catch (e) {
+            console.error("Waste Submit Timeout Error:", e);
+            if (btn) {
+              btn.innerHTML = "Capture Location & Submit";
+              btn.disabled = false;
             }
-          } catch (e) { }
-        }
-      },
+          }
+        }, 1500);
+      } catch (e) {
+        console.error("Waste Submit Error:", e);
+      }
+    }
 
-      login: function () {
-        const em = document.getElementById("loginEmail").value.trim();
-        const pw = document.getElementById("loginPass").value.trim();
-        const err = document.getElementById("login-error");
+    function updateGarden() {
+      try {
+        const db = getDB();
+        const user = db.users.find(u => u.id === currentUser.id);
 
-        if (!Array.isArray(AppState.db.users)) return;
+        if (user.gardenStage >= 3) { alert("Garden reward already completed."); return; }
 
-        const user = AppState.db.users.find(u => u.email === em && u.password === pw);
+        const plants = parseInt(document.getElementById("plantCount")?.value) || 0;
+        const trees = parseInt(document.getElementById("treeCount")?.value) || 0;
 
-        if (user) {
-          AppState.session = user;
-          localStorage.setItem("zgx_session", JSON.stringify(user.email));
-          document.getElementById("loginPass").value = "";
-          err.classList.add("hidden");
-          this.launchApp();
+        const photo = document.getElementById("gardenPhoto").files[0];
+        if (!photo) { alert("Upload garden photo."); return; }
+        if (currentLat === null || currentLng === null) { alert("Location not captured yet. Please allow permissions."); return; }
+
+        if (user.gardenLat && user.gardenLng) {
+          if (getDistance(currentLat, currentLng, user.gardenLat, user.gardenLng) > 500) {
+            alert("Location mismatch! You must upload from your registered garden location within 500m.");
+            return;
+          }
         } else {
-          err.textContent = "Identity Node / Passcode mismatch.";
-          err.classList.remove("hidden");
+          user.gardenLat = currentLat;
+          user.gardenLng = currentLng;
         }
-      },
 
-      logout: function () {
-        AppState.session = null;
-        localStorage.removeItem("zgx_session");
-        this.cleanup();
-
-        document.getElementById("appView").classList.add("hidden");
-        document.getElementById("loginView").style.display = "flex";
-        document.getElementById("dashboardContent").style.opacity = "0";
-        setTimeout(() => { document.getElementById("dashboardContent").innerHTML = ""; }, 500);
-        document.getElementById("ticket-banner").innerHTML = "";
-        document.getElementById("ticket-banner").classList.add("hidden");
-      },
-
-      launchApp: function () {
-        document.getElementById("loginView").style.display = "none";
-        document.getElementById("appView").classList.remove("hidden");
-
-        document.getElementById("header-email").textContent = AppState.session.email;
-        document.getElementById("header-role").textContent = AppState.session.role;
-
-        if (AppState.session.role === 'worker') this.checkWorkerDay();
-
-        this.renderBanners();
-        this.renderRole();
-      },
-
-      cleanup: function () {
-        Object.keys(AppState.charts).forEach(k => { AppState.charts[k].destroy(); delete AppState.charts[k]; });
-        Object.keys(AppState.maps).forEach(k => { AppState.maps[k].remove(); delete AppState.maps[k]; });
-      },
-
-      checkWorkerDay: function () {
-        const u = AppState.session;
-        const today = new Date().toDateString();
-        if (u.lastActiveDate !== today) {
-          u.lastActiveDate = today;
-          u.dailyCount = 0;
-          this.saveDB();
+        const now = new Date().getTime();
+        if (user.lastGardenUpdate) {
+          const diff = now - user.lastGardenUpdate;
+          const days = diff / (1000 * 60 * 60 * 24);
+          if (days < 20) { alert("You must wait 20 days between garden updates."); return; }
         }
-      },
 
-      startGlobalTicks: function () {
-        setInterval(() => {
-          if (!AppState.db || !Array.isArray(AppState.db.foodTickets)) return;
-          let changed = false;
-          const now = Date.now();
+        user.gardenStage = (user.gardenStage || 0) + 1;
+        user.lastGardenUpdate = now;
 
-          AppState.db.foodTickets.forEach(t => {
-            if (t.status === 'open' && t.deadline <= now) {
-              t.status = 'expired';
-              changed = true;
-            }
-          });
-          if (changed) {
-            this.saveDB();
-            if (AppState.session) {
-              this.renderBanners();
-              if (AppState.session.role === 'ngo') this.renderRole();
-            }
-          }
-        }, 10000);
-      },
+        const reward = (plants * 1) + (trees * 5);
+        const co2Gain = (plants * 0.5) + (trees * 5);
 
-      renderRole: function () {
-        this.cleanup();
-        const dc = document.getElementById("dashboardContent");
-        dc.style.opacity = "0";
+        user.wallet += reward;
+        user.co2 = (user.co2 || 0) + co2Gain;
+        db.reserve -= reward;
 
-        setTimeout(() => {
-          if (AppState.session.role === 'admin') Views.renderAdmin();
-          else if (AppState.session.role === 'citizen') Views.renderCitizen();
-          else if (AppState.session.role === 'worker') Views.renderWorker();
-          else if (AppState.session.role === 'ngo') Views.renderNGO();
-          dc.style.opacity = "1";
-        }, 50);
-      },
+        if (user.gardenStage === 3) {
+          user.wallet += 50;
+          db.reserve -= 50;
+          alert(`Garden milestone completed! 50 ZC credited + ${reward} ZC based on plants/trees.`);
+        } else {
+          alert(`Garden update recorded. Stage ${user.gardenStage}/3. Earned ${reward} Z Coins.`);
+        }
 
-      renderBanners: function () {
-        const wrap = document.getElementById("ticket-banner");
-        if (!AppState.db || !Array.isArray(AppState.db.foodTickets)) { wrap.classList.add("hidden"); return; }
-
-        const openTix = AppState.db.foodTickets.filter(t => t.status === 'open');
-        if (openTix.length === 0) { wrap.classList.add("hidden"); return; }
-
-        wrap.classList.remove("hidden");
-        wrap.innerHTML = `<div class="p-2 w-full flex overflow-x-auto gap-4 hide-scroll">
-                    ${openTix.map(t => `
-                        <div onclick="Engine.openDonateModal('${t.id}')" class="flex-shrink-0 bg-blue-900/40 border border-blue-400 p-2 flex items-center justify-between min-w-[320px] cursor-pointer hover:bg-blue-800/60 transition-colors rounded">
-                            <div>
-                                <div class="text-[10px] uppercase text-blue-300 font-bold tracking-widest flex items-center gap-1"><span class="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></span> NGO LEDGER: ${t.item}</div>
-                                <div class="text-xs text-white font-mono mt-1">N: ${t.remainingQty} | ${Math.max(1, Math.floor((t.deadline - Date.now()) / 60000))}m rem</div>
-                            </div>
-                            <div class="bg-blue-500 text-[10px] font-bold px-3 py-1.5 rounded uppercase tracking-widest text-white shadow-lg">SUPPLY</div>
-                        </div>
-                    `).join('')}
-                </div>`;
-      },
-
-      getGeo: function (callback) {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            pos => callback({ lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: Date.now() }),
-            err => alert("Protocol violation: Geolocation strictly required."),
-            { enableHighAccuracy: true }
-          );
-        } else alert("Geolocation unsupported on this node.");
-      },
-
-      haversine: function (lat1, lon1, lat2, lon2) {
-        const R = 6371e3;
-        const p1 = lat1 * Math.PI / 180, p2 = lat2 * Math.PI / 180;
-        const dp = (lat2 - lat1) * Math.PI / 180, dl = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dp / 2) * Math.sin(dp / 2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
-        return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-      },
-
-      toggleUI: function (id) {
-        document.querySelectorAll('.mod-section').forEach(el => el.style.display = 'none');
-        document.getElementById(id).style.display = 'block';
-        AppState.tempImg = null;
-
-        ["ui-w-img", "ui-g-img"].forEach(imgId => {
-          const el = document.getElementById(imgId);
-          if (el) { el.src = ""; el.classList.add("hidden"); el.nextElementSibling.classList.remove("hidden"); }
-        });
-
-        ["ui-submit-btn", "ui-g-btn"].forEach(btnId => {
-          const el = document.getElementById(btnId);
-          if (el) { el.disabled = true; el.innerHTML = "Upload Log"; }
-        });
-      },
-
-      handleImage: function (inputEl, previewId, isModal = false) {
-        const file = inputEl.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const res = e.target.result;
-          if (isModal) AppState.modalImg = res;
-          else AppState.tempImg = res;
-
-          const el = document.getElementById(previewId);
-          if (el) {
-            el.src = res;
-            el.classList.remove('hidden');
-            el.nextElementSibling.classList.add('hidden');
-          }
-
-          if (isModal) document.getElementById("modal-submit-btn").disabled = false;
-          else {
-            const btn = document.getElementById("ui-submit-btn");
-            if (btn) btn.disabled = false;
-            const gbtn = document.getElementById("ui-g-btn");
-            if (gbtn) gbtn.disabled = false;
-          }
-        };
-        reader.readAsDataURL(file);
-      },
-
-      // --- NGO ---
-      openDonateModal: function (tid) {
-        if (AppState.session.role !== 'citizen') return alert("Only standard citizen nodes process supply donations.");
-
-        const t = AppState.db.foodTickets.find(x => x.id === tid);
-        if (!t || t.status !== 'open') return alert("Ledger block closed.");
-
-        document.getElementById("modal-ticket-id").value = tid;
-        document.getElementById("modal-ticket-info").innerHTML = `<b>Target:</b> ${t.item}<br><b>Required:</b> ${t.remainingQty}`;
-        document.getElementById("modal-qty").value = "";
-        document.getElementById("modal-qty").max = t.remainingQty;
-
-        AppState.modalImg = null;
-        const imgPre = document.getElementById("modal-img-preview");
-        imgPre.src = ""; imgPre.classList.add("hidden");
-        document.getElementById("modal-placeholder").classList.remove("hidden");
-        document.getElementById("modal-submit-btn").disabled = true;
-        document.getElementById("donateModal").classList.remove("hidden");
-      },
-
-      closeDonateModal: function () {
-        document.getElementById("donateModal").classList.add("hidden");
-        AppState.modalImg = null;
-      },
-
-      submitFoodDonation: function () {
-        const tid = document.getElementById("modal-ticket-id").value;
-        const qty = parseFloat(document.getElementById("modal-qty").value);
-        const img = AppState.modalImg;
-
-        if (!img || isNaN(qty) || qty <= 0) return alert("Invalid inputs/missing photo.");
-
-        const t = AppState.db.foodTickets.find(x => x.id === tid);
-        if (!t || t.status !== 'open') return alert("Ledger closed.");
-        if (qty > t.remainingQty) return alert(`Max block allocatable is ${t.remainingQty}`);
-
-        const btn = document.getElementById("modal-submit-btn");
-        btn.textContent = "Locking Geo...";
-        btn.disabled = true;
-
-        this.getGeo((loc) => {
-          t.remainingQty -= qty;
-          t.contributions.push({ email: AppState.session.email, qty, lat: loc.lat, lng: loc.lng, image: img, timestamp: loc.timestamp });
-          if (t.remainingQty <= 0) { t.remainingQty = 0; t.status = "closed"; }
-
-          const u = AppState.db.users.find(x => x.email === AppState.session.email);
-          if (u) u.wallet += (qty * 2);
-
-          this.saveDB();
-          this.closeDonateModal();
-          alert("Donation block appended. Wallet credited.");
-          if (AppState.session.role === 'citizen') Views.renderCitizen();
-        });
-      },
-
-      // --- ACTIONS ---
-      submitWaste: function () {
-        if (!AppState.tempImg) return;
-        const btn = document.getElementById("ui-submit-btn");
-        btn.innerText = "Locking Geo...";
-        btn.disabled = true;
-
-        this.getGeo((loc) => {
-          AppState.db.wasteSubmissions.push({
-            id: Date.now().toString(),
-            email: AppState.session.email,
-            image: AppState.tempImg,
-            lat: loc.lat,
-            lng: loc.lng,
-            status: "pending",
-            timestamp: loc.timestamp
-          });
-          this.saveDB();
-          alert("Waste submission recorded to network.");
-          Views.renderCitizen();
-        });
-      },
-
-      submitGarden: function () {
-        if (!AppState.tempImg) return;
-        const pCnt = parseInt(document.getElementById("g-plants").value) || 0;
-        const tCnt = parseInt(document.getElementById("g-trees").value) || 0;
-        if (pCnt === 0 && tCnt === 0) return alert("Must declare bio-assets.");
-
-        const btn = document.getElementById("ui-g-btn");
-        btn.innerHTML = "Locking Geo...";
-        btn.disabled = true;
-
-        this.getGeo((loc) => {
-          const uGards = AppState.db.gardenUpdates.filter(g => g.email === AppState.session.email);
-          if (uGards.length > 0) {
-            const dist = this.haversine(uGards[0].lat, uGards[0].lng, loc.lat, loc.lng);
-            if (dist > 50) {
-              alert(`ERR: Geo-signature mismatch. Must be within 50m of baseline garden location. (You are ${Math.floor(dist)}m away)`);
-              btn.innerHTML = "Upload Log"; btn.disabled = false;
-              return;
-            }
-          }
-
-          AppState.db.gardenUpdates.push({
-            id: Date.now().toString(),
-            email: AppState.session.email,
-            image: AppState.tempImg,
-            lat: loc.lat,
-            lng: loc.lng,
-            plantCount: pCnt,
-            treeCount: tCnt,
-            verified: false,
-            timestamp: loc.timestamp
-          });
-          this.saveDB();
-          alert("Garden state appended.");
-          Views.renderCitizen();
-        });
-      },
-
-      verifyWaste: function (id) {
-        const w = AppState.db.wasteSubmissions.find(x => x.id === id);
-        if (!w || w.status === 'verified') return;
-        const btn = document.getElementById(`btn-w-${id}`);
-        btn.innerText = "Syncing Geo..."; btn.disabled = true;
-
-        this.getGeo((loc) => {
-          const dist = this.haversine(loc.lat, loc.lng, w.lat, w.lng);
-          if (dist > 500) {
-            alert("You are more than 500 meters away.");
-            btn.innerHTML = "Verify"; btn.disabled = false;
-            return;
-          }
-          w.status = 'verified';
-
-          const cit = AppState.db.users.find(u => u.email === w.email);
-          const wrk = AppState.session;
-
-          if (cit) cit.wallet += 10;
-
-          let wRwd = 15;
-          wrk.dailyCount++;
-          if (wrk.dailyCount % 10 === 0) {
-            const tier = wrk.dailyCount / 10;
-            const bonus = tier * 10;
-            wRwd += bonus;
-            alert(`Milestone! Tier ${tier} reached. Bonus +${bonus} ZC.`);
-          }
-          wrk.wallet += wRwd;
-
-          this.saveDB(); Views.renderWorker();
-        });
-      },
-
-      verifyGarden: function (id) {
-        const g = AppState.db.gardenUpdates.find(x => x.id === id);
-        if (!g || g.verified) return;
-        const btn = document.getElementById(`btn-g-${id}`);
-        btn.innerText = "Syncing Geo..."; btn.disabled = true;
-
-        this.getGeo((loc) => {
-          const dist = this.haversine(loc.lat, loc.lng, g.lat, g.lng);
-          if (dist > 500) {
-            alert("You are more than 500 meters away.");
-            btn.innerHTML = "Verify"; btn.disabled = false;
-            return;
-          }
-          g.verified = true;
-
-          const cit = AppState.db.users.find(u => u.email === g.email);
-          const wrk = AppState.session;
-
-          if (cit) {
-            cit.wallet += (50 + (g.plantCount * 1) + (g.treeCount * 5));
-            cit.co2 += (g.plantCount * 0.5);
-          }
-          wrk.wallet += 15;
-
-          this.saveDB(); Views.renderWorker();
-        });
+        saveDB(db);
+        renderCitizen();
+      } catch (e) {
+        console.error("Update Garden Error:", e);
       }
-    };
+    }
 
-    const Views = {
-      renderCitizen: function () {
-        const u = AppState.session;
-        const uGards = AppState.db.gardenUpdates.filter(g => g.email === u.email).reverse();
-        let gTotp = 0; uGards.forEach(g => gTotp += g.plantCount);
+    function submitFood() {
 
-        let html = `
-                    <div class="grid grid-cols-2 gap-4 mb-8">
-                        <div class="card col-span-2 border-l-4 border-l-[var(--gold)] border-t-0 border-r-0 border-b-0 flex justify-between items-center text-left">
-                           <div>
-                               <div class="text-[10px] text-gray-500 uppercase tracking-widest">Network Treasury</div>
-                               <div class="text-4xl font-mono font-bold shimmer-text flex gap-1"><span id="anim-c-wal">0</span> <span class="text-xs self-end mb-1 text-gray-400">ZC</span></div>
-                           </div>
-                           <div class="text-right">
-                               <div class="text-[10px] text-gray-500 uppercase tracking-widest">Offset Metric</div>
-                               <div class="text-xl font-mono text-green-500 flex gap-1"><span id="anim-c-co2">0.0</span><span class="text-[10px] self-end mb-1 text-gray-400">kg</span></div>
-                           </div>
-                        </div>
-                    </div>
+      const db = getDB();
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                        <button onclick="Engine.toggleUI('ui-waste')" class="outline-btn uppercase tracking-widest !py-5">Waste to Wealth</button>
-                        <button onclick="document.getElementById('ticket-banner').scrollIntoView({behavior:'smooth'})" class="outline-btn uppercase tracking-widest !py-5 !border-blue-500 !text-blue-500">Food Logistics</button>
-                        <button onclick="Engine.toggleUI('ui-garden')" class="outline-btn uppercase tracking-widest !py-5 !border-green-500 !text-green-500">Terrace Garden</button>
-                    </div>
+      const ledgerId = document.getElementById("foodLedger").value;
+      const qty = parseInt(document.getElementById("foodQty").value);
 
-                    <div id="ui-waste" class="mod-section card text-center mb-8 fade-in">
-                        <h3 class="text-sm font-bold gold-text uppercase tracking-widest mb-4 border-b border-[#333] pb-2">Waste Protocol</h3>
-                        <input type="file" id="ui-w-file" accept="image/*" class="hidden" onchange="Engine.handleImage(this, 'ui-w-img')">
-                        <div class="bg-black border border-[#333] rounded h-48 w-full max-w-sm mx-auto mb-4 flex items-center justify-center cursor-pointer overflow-hidden transition-colors hover:border-[#666]" onclick="document.getElementById('ui-w-file').click()">
-                           <img id="ui-w-img" class="w-full h-full object-cover hidden">
-                           <div class="text-center text-[var(--gold)] opacity-70"><span class="text-3xl">📸</span><br><span class="text-[10px] uppercase tracking-widest mt-2 block">Capture Evidence</span></div>
-                        </div>
-                        <button id="ui-submit-btn" disabled class="gold-btn uppercase max-w-sm mx-auto tracking-widest mt-2" onclick="Engine.submitWaste()">Process Status</button>
-                    </div>
+      const ticket = db.foodTickets.find(
+        t => t.id.toString() === ledgerId.toString()
+      );
 
-                    <div id="ui-garden" class="mod-section card text-center mb-8 fade-in">
-                        <h3 class="text-sm font-bold text-green-500 uppercase tracking-widest mb-4 border-b border-[#333] pb-2">Bio-Garden Protocol</h3>
-                        <div class="grid grid-cols-2 gap-4 max-w-sm mx-auto mb-4">
-                            <input type="number" id="g-plants" placeholder="Plants" min="0" class="!mb-0 text-center font-mono">
-                            <input type="number" id="g-trees" placeholder="Trees" min="0" class="!mb-0 text-center font-mono">
-                        </div>
-                        <input type="file" id="ui-g-file" accept="image/*" class="hidden" onchange="Engine.handleImage(this, 'ui-g-img')">
-                        <div class="bg-black border border-[#333] rounded h-40 w-full max-w-sm mx-auto mb-4 flex items-center justify-center cursor-pointer overflow-hidden transition-colors hover:border-[#666]" onclick="document.getElementById('ui-g-file').click()">
-                           <img id="ui-g-img" class="w-full h-full object-cover hidden">
-                           <div class="text-center text-green-500 opacity-70"><span class="text-3xl">📸</span><br><span class="text-[10px] uppercase tracking-widest mt-2 block">Document State</span></div>
-                        </div>
-                        <p class="text-[9px] text-gray-500 uppercase mb-4 max-w-sm mx-auto bg-black p-2 border border-[#222] rounded">First log sets baseline geo-location lock.</p>
-                        <button id="ui-g-btn" disabled class="outline-btn !border-green-500 !text-green-500 max-w-sm mx-auto uppercase tracking-widest mt-2 hover:!bg-green-900/20" onclick="Engine.submitGarden()">Upload Log</button>
-                        
-                        ${uGards.length > 0 ? `
-                        <div class="mt-8 text-left border-t border-[#333] pt-6 max-w-sm mx-auto">
-                            <div class="flex justify-between text-[10px] text-gray-400 uppercase tracking-widest mb-4"><span>Uploads: ${uGards.length}</span><span>Tot Plants: ${gTotp}</span></div>
-                            <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
-                                ${uGards.map(h => `<div class="bg-black border border-[#222] p-2 rounded flex justify-between text-[10px] uppercase font-mono"><span class="${h.verified ? 'text-green-400' : 'text-gray-500'}">${h.verified ? '✓ VER' : '✗ PEN'}</span> <span class="text-gray-400">P:${h.plantCount} T:${h.treeCount}</span></div>`).join('')}
-                            </div>
-                        </div>` : ''}
-                    </div>
-                `;
-        document.getElementById('dashboardContent').innerHTML = html;
-        setTimeout(() => {
-          animateValue(document.getElementById('anim-c-wal'), 0, u.wallet, 1000);
-          animateValue(document.getElementById('anim-c-co2'), 0, u.co2, 1000, true);
-        }, 100);
-      },
+      if (!ticket) return;
 
-      renderWorker: function () {
-        const u = AppState.session;
-        const pW = AppState.db.wasteSubmissions.filter(w => w.status === 'pending');
-        const pG = AppState.db.gardenUpdates.filter(g => !g.verified);
+      ticket.remainingQty -= qty;
 
-        let html = `
-                    <div class="card mb-6 border-l-4 border-l-[var(--gold)] border-t-0 border-r-0 border-b-0 flex justify-between items-center bg-[#111]">
-                       <div><div class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Worker Treasury</div><div class="text-3xl font-mono font-bold shimmer-text flex gap-1"><span id="anim-w-wal">0</span><span class="text-xs text-gray-500 self-end mb-1">ZC</span></div></div>
-                       <div class="text-right">
-                           <div class="text-[10px] text-[var(--gold)] uppercase tracking-widest mb-1">Daily Verifications</div>
-                           <div class="font-mono text-xl">${u.dailyCount} <span class="text-[10px] text-gray-500">/ Tier ${(Math.floor(u.dailyCount / 10)) + 1}</span></div>
-                       </div>
-                    </div>
+      ticket.contributors.push({
+        user: currentUser.email,
+        qty: qty,
+        time: Date.now()
+      });
 
-                    ${pW.length === 0 && pG.length === 0 ? '<div class="text-center italic text-gray-500 text-xs py-10 card">No active protocol requests in zone.</div>' : ''}
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        ${pW.map(w => `
-                            <div class="bg-[#111] border border-[#222] rounded flex flex-col md:flex-row shadow-[0_4px_20px_rgba(0,0,0,0.8)] overflow-hidden transition-transform hover:-translate-y-1">
-                                <img src="${w.image}" class="w-full md:w-32 h-32 object-cover">
-                                <div class="p-4 w-full flex flex-col justify-between">
-                                    <div class="flex justify-between items-center mb-4 border-b border-[#333] pb-2 text-[10px] uppercase font-mono"><span class="text-gray-400">${w.email}</span><span class="font-bold text-[var(--gold)]">WASTE</span></div>
-                                    <button id="btn-w-${w.id}" onclick="Engine.verifyWaste('${w.id}')" class="gold-btn !py-2 uppercase tracking-widest text-xs">Verify Scope</button>
-                                </div>
-                            </div>
-                        `).join('')}
-                        ${pG.map(g => `
-                            <div class="bg-[#111] border border-[#222] rounded flex flex-col md:flex-row shadow-[0_4px_20px_rgba(0,0,0,0.8)] overflow-hidden transition-transform hover:-translate-y-1">
-                                <img src="${g.image}" class="w-full md:w-32 h-32 object-cover grayscale brightness-75 border-r border-[#333]">
-                                <div class="p-4 w-full flex flex-col justify-between">
-                                    <div class="flex justify-between items-center mb-4 border-b border-[#333] pb-2 text-[10px] uppercase font-mono"><span class="text-gray-400">${g.email}</span><span class="font-bold text-green-500">GARDEN</div>
-                                    <button id="btn-g-${g.id}" onclick="Engine.verifyGarden('${g.id}')" class="outline-btn !border-green-500 !text-green-500 hover:!bg-green-900/20 !py-2 uppercase tracking-widest text-xs">Verify Bio</button>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-        document.getElementById('dashboardContent').innerHTML = html;
-        setTimeout(() => { animateValue(document.getElementById('anim-w-wal'), 0, u.wallet, 1000); }, 100);
-      },
+      if (ticket.remainingQty <= 0) {
+        ticket.status = "closed";
+      }
 
-      renderNGO: function () {
-        const tix = AppState.db.foodTickets.slice().reverse();
-        let html = `
-                    <div class="card text-center mb-8 border-t-2 border-t-blue-500">
-                        <h2 class="text-sm font-bold text-blue-500 uppercase tracking-widest border-b border-[#333] pb-2 mb-6 text-center w-full">Broadcast Resource Demands</h2>
-                        <form onsubmit="event.preventDefault(); Engine.createTicket();" class="flex flex-col gap-4 max-w-sm mx-auto">
-                            <input id="ngo-item" type="text" placeholder="Resource Name..." required class="text-center font-mono">
-                            <input id="ngo-qty" type="number" placeholder="Volume Needed" min="1" required class="text-center font-mono">
-                            <select id="ngo-time" required class="text-center font-mono text-gray-400">
-                                <option value="">-- Active Window --</option>
-                                <option value="60">1 Hour TTL</option>
-                                <option value="120">2 Hours TTL</option>
-                                <option value="1440">24 Hours TTL</option>
-                            </select>
-                            <button type="submit" class="gold-btn !bg-blue-600 !text-white uppercase tracking-widest text-xs py-3">Transmit Ledger Block</button>
-                        </form>
-                    </div>
+      const user = db.users.find(u => u.id === currentUser.id);
 
-                    <div class="space-y-4">
-                        ${tix.length === 0 ? '<div class="text-center text-xs text-gray-500 italic">No tickets exist on protocol.</div>' : tix.map(t => {
-          let stat = t.status === 'open' ? '<span class="text-green-400 font-bold tracking-widest bg-green-900/40 px-2 py-1 rounded">OPEN</span>' :
-            (t.status === 'closed' ? '<span class="text-gray-500 font-bold tracking-widest bg-[#222] px-2 py-1 rounded">CLOSED</span>' :
-              '<span class="text-red-500 font-bold tracking-widest bg-red-900/40 px-2 py-1 rounded">EXPIRED</span>');
-          return `
-                            <div class="bg-[#111] border ${t.status === 'open' ? 'border-blue-900 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'border-[#222]'} p-4 rounded flex flex-col md:flex-row justify-between items-center text-center md:text-left gap-4">
-                                <div class="w-full">
-                                    <div class="text-lg font-bold text-white mb-2 uppercase tracking-widest">${t.item}</div>
-                                    <div class="flex items-center justify-center md:justify-start gap-4">
-                                        <div class="text-[10px]">${stat}</div>
-                                        <div class="font-mono text-xs text-gray-400">REM: ${t.remainingQty} <span class="opacity-50">/ ${t.requiredQty}</span></div>
-                                    </div>
-                                    ${t.status === 'expired' ? `<div class="text-[9px] text-red-500 italic mt-3 bg-red-950/30 p-1 border border-red-900 rounded">Time-to-Live elapsed. Network rejecting further inputs.</div>` : ''}
-                                </div>
-                                <div class="text-[9px] text-gray-600 font-mono tracking-widest whitespace-nowrap">ID: ${t.id}</div>
-                            </div>`;
-        }).join('')}
-                    </div>
-                `;
-        document.getElementById('dashboardContent').innerHTML = html;
-      },
+      user.wallet += qty * 2;
 
-      renderAdmin: function () {
-        const db = AppState.db;
-        let cCit = 0, cWrk = 0, cNgo = 0, tDist = 0, totCO2 = 0;
+      saveDB(db);
 
-        db.users.forEach(u => {
-          if (u.role === 'citizen') { cCit++; totCO2 += u.co2; }
-          if (u.role === 'worker') cWrk++;
-          if (u.role === 'ngo') cNgo++;
-          if (u.role !== 'admin') tDist += u.wallet;
+      alert("Food donated");
+
+      renderCitizen();
+    }
+
+    function requestWithdrawal() {
+      try {
+        const db = getDB();
+        const user = db.users.find(u => u.id === currentUser.id);
+        const amtEl = document.getElementById("withdrawAmount");
+        const amount = amtEl ? parseInt(amtEl.value) : 0;
+
+        if (!amount || amount < 100) { alert("Minimum withdrawal is 100 Z Coins."); return; }
+        if (user.wallet < amount) { alert("Insufficient balance."); return; }
+
+        user.wallet -= amount;
+        db.withdrawals.push({
+          id: Date.now(),
+          userId: user.id,
+          amount: amount,
+          status: "pending"
         });
 
-        const wArr = db.wasteSubmissions; const totVerW = wArr.filter(w => w.status === 'verified').length;
-        let totD = 0; db.foodTickets.forEach(t => totD += t.contributions.length);
-        const gArr = db.gardenUpdates; let totP = 0; gArr.forEach(g => totP += g.plantCount);
+        saveDB(db);
+        alert("Withdrawal request submitted for admin approval.");
+        if (amtEl) amtEl.value = "";
+        renderCitizen();
+      } catch (e) {
+        console.error("Request Withdrawal Error:", e);
+      }
+    }
 
-        const resVal = db.systemReserve - tDist;
-        const resRatio = ((resVal / db.systemReserve) * 100).toFixed(1);
+    function redeemVoucher() {
+      try {
+        const db = getDB();
+        const user = db.users.find(u => u.id === currentUser.id);
 
-        let html = `
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 text-center">
-                         <div class="bg-[#111] p-4 rounded border border-[#222]">
-                            <div class="text-[10px] text-gray-500 uppercase tracking-widest border-b border-[#333] pb-1 mb-2">Reserve Pool</div>
-                            <div class="text-xl font-bold font-mono text-green-500"><span id="anim-a-res">0</span> <span class="text-[10px] font-sans">(${resRatio}%)</span></div>
-                        </div>
-                         <div class="bg-[#111] p-4 rounded border border-[#222]">
-                            <div class="text-[10px] text-gray-500 uppercase tracking-widest border-b border-[#333] pb-1 mb-2">Distributed</div>
-                            <div class="text-xl font-bold font-mono text-[var(--gold)]" id="anim-a-dist">0</div>
-                        </div>
-                         <div class="bg-[#111] p-4 rounded border border-[#222]">
-                            <div class="text-[10px] text-gray-500 uppercase tracking-widest border-b border-[#333] pb-1 mb-2">Waste (Ver/Tot)</div>
-                            <div class="text-xl font-bold font-mono text-white">${totVerW} <span class="text-sm font-sans text-gray-500">/ ${wArr.length}</span></div>
-                        </div>
-                         <div class="bg-[#111] p-4 rounded border border-[#222]">
-                            <div class="text-[10px] text-gray-500 uppercase tracking-widest border-b border-[#333] pb-1 mb-2">Bio-Impact (CO2)</div>
-                            <div class="text-xl font-bold font-mono text-green-500"><span id="anim-a-co2">0.0</span> <span class="text-xs">kg</span></div>
-                        </div>
-                    </div>
+        if (user.wallet < 200) { alert("Not enough Z Coins."); return; }
+        user.wallet -= 200;
+        db.reserve -= 200;
+        saveDB(db);
 
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                        <div class="card lg:col-span-2">
-                            <h2 class="text-[10px] text-gray-400 uppercase tracking-widest mb-4 border-b border-[#333] pb-2 text-center w-full font-bold">Protocol Volume</h2>
-                            <div class="w-full h-64 relative"><canvas id="admin-bar"></canvas></div>
-                        </div>
-                        <div class="card border-t-2 border-t-green-500">
-                            <h2 class="text-[10px] text-green-500 uppercase tracking-widest mb-4 border-b border-[#333] pb-2 text-center w-full font-bold">Bio-Nodes</h2>
-                            <div class="w-full h-64 relative"><canvas id="admin-dough"></canvas></div>
-                        </div>
-                    </div>
+        alert("Voucher redeemed successfully.");
+        renderCitizen();
+      } catch (e) {
+        console.error("Redeem Voucher Error:", e);
+      }
+    }
 
-                    ${this.renderLeaderboard()}
-                `;
-        document.getElementById('dashboardContent').innerHTML = html;
+    function redeemUPI() {
+      try {
+        const db = getDB();
+        const user = db.users.find(u => u.id === currentUser.id);
 
-        setTimeout(() => {
-          animateValue(document.getElementById('anim-a-res'), 0, resVal, 1000);
-          animateValue(document.getElementById('anim-a-dist'), 0, tDist, 1000);
-          animateValue(document.getElementById('anim-a-co2'), 0, totCO2, 1000, true);
+        if (user.wallet < 500) { alert("Not enough Z Coins."); return; }
+        const confirmPass = prompt("Enter password to confirm UPI transfer:");
+        if (confirmPass !== currentUser.password) { alert("Authentication failed."); return; }
 
-          Chart.defaults.color = '#777'; Chart.defaults.font.family = 'system-ui';
-          const ctxB = document.getElementById('admin-bar');
-          if (ctxB) {
-            AppState.charts['bC'] = new Chart(ctxB, {
-              type: 'bar',
-              data: { labels: ['P.Waste', 'V.Waste', 'Food Tx', 'Bio Logs'], datasets: [{ data: [wArr.length - totVerW, totVerW, totD, gArr.length], backgroundColor: ['#D4AF37', '#22C55E', '#3B82F6', '#10B981'], borderRadius: 4 }] },
-              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#222' } }, x: { grid: { display: false } } } }
-            });
+        user.wallet -= 500;
+        db.reserve -= 500;
+        saveDB(db);
+
+        alert("UPI transfer initiated (Simulated).");
+        renderCitizen();
+      } catch (e) {
+        console.error("Redeem UPI Error:", e);
+      }
+    }
+
+    /* =========================
+       WORKER ENGINE
+    ========================= */
+    function renderWorker() {
+      const db = getDB();
+      const worker = db.users.find(u => u.id === currentUser.id);
+
+      document.getElementById("app").innerHTML = `
+  <div class="p-10 max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-8 border-b border-gray-800 pb-4">
+      <div>
+        <h2 class="text-2xl gold font-bold uppercase tracking-widest">Worker Dashboard</h2>
+        <p class="text-xs text-gray-500 font-mono mt-1">Node: ${worker.email}</p>
+      </div>
+      <button onclick="logout()" class="border border-red-500/50 text-red-500 px-4 py-2 rounded uppercase tracking-widest text-xs hover:bg-red-500/10 transition-colors">Logout</button>
+    </div>
+
+    <div class="card p-6 rounded shadow-lg border-l-2 border-yellow-500 mb-8 max-w-xs">
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Your Wallet</div>
+        <div class="text-4xl gold font-mono">${worker.wallet}</div>
+    </div>
+
+    <div class="card p-6 rounded shadow-lg border border-gray-800">
+      <h3 class="gold mb-4 uppercase tracking-widest font-bold">Pending Waste Nearby</h3>
+      <div id="workerMap" style="height:400px;" class="mb-6 rounded border border-gray-700"></div>
+      <h4 class="text-xs uppercase tracking-widest text-gray-500 mb-2 border-b border-gray-800 pb-2">Geospatial Validation Buffer</h4>
+      <div id="pendingList" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4"></div>
+    </div>
+  </div>
+  `;
+      initializeWorkerMap();
+    }
+
+    let workerLat = null;
+    let workerLng = null;
+    let workerMap;
+
+    function initializeWorkerMap() {
+      try {
+        const mapContainer = document.getElementById('workerMap');
+        if (!mapContainer) return;
+
+        if (workerMap) {
+          workerMap.remove();
+          workerMap = null;
+        }
+        workerMap = L.map('workerMap').setView([20.5937, 78.9629], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap'
+        }).addTo(workerMap);
+
+        navigator.geolocation.getCurrentPosition(position => {
+          workerLat = position.coords.latitude;
+          workerLng = position.coords.longitude;
+          if (workerMap) {
+            workerMap.setView([workerLat, workerLng], 15);
+            L.marker([workerLat, workerLng])
+              .addTo(workerMap)
+              .bindPopup("Worker Location")
+              .openPopup();
           }
-          const ctxD = document.getElementById('admin-dough');
-          if (ctxD) {
-            AppState.charts['dC'] = new Chart(ctxD, {
-              type: 'doughnut',
-              data: { labels: ['Reserve', 'Distributed'], datasets: [{ data: [resVal, tDist], backgroundColor: ['#10B981', '#D4AF37'], borderWidth: 0 }] },
-              options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom', labels: { color: '#999' } } } }
-            });
+          loadPendingSubmissions();
+        }, error => {
+          console.error("Worker Geolocation Error:", error);
+          alert("Location permission required for worker mapping.");
+        });
+      } catch (e) {
+        console.error("Worker Map Init Error:", e);
+      }
+    }
+
+    function loadPendingSubmissions() {
+      try {
+        const db = getDB();
+        const pending = db.wasteSubmissions.filter(s => s.status === "pending");
+        const container = document.getElementById("pendingList");
+        if (!container) return;
+
+        container.innerHTML = "";
+
+        if (pending.length === 0) {
+          container.innerHTML = "<p class='text-gray-400 text-sm'>No pending waste nearby.</p>";
+          return;
+        }
+
+        pending.forEach(sub => {
+          const distance = getDistance(workerLat, workerLng, sub.lat, sub.lng);
+          const div = document.createElement("div");
+          div.className = "bg-gray-900 border border-gray-700 shadow p-4 rounded text-sm flex justify-between items-center";
+
+          div.innerHTML = `
+        <div>
+            <div class="gold font-mono mb-1 text-xs">ID: ${sub.id}</div>
+            <div class="text-gray-400 font-mono text-[10px]">Distance: ${(distance / 1000).toFixed(2)} km</div>
+        </div>
+        <div>
+        ${distance <= 500
+              ? `<button onclick="verifyWaste(${sub.id})" class="bg-green-600 hover:bg-green-500 text-white font-bold px-4 py-2 rounded text-xs uppercase uppercase transition-colors shadow">Verify <span class="text-[10px] opacity-70 block -mt-1">< 500m</span></button>`
+              : `<span class="text-red-400 text-[10px] uppercase font-bold border border-red-500/30 px-2 py-1 rounded">Out of Range</span>`
+            }
+        </div>
+      `;
+          container.appendChild(div);
+
+          if (workerMap) {
+            L.marker([sub.lat, sub.lng])
+              .addTo(workerMap)
+              .bindPopup("Pending Waste Entry");
           }
-        }, 100);
-      },
+        });
+      } catch (e) {
+        console.error("Load Submissions Error:", e);
+      }
+    }
 
-      renderLeaderboard: function () {
-        if (!AppState.db || !Array.isArray(AppState.db.users)) return '';
-        const cL = AppState.db.users.filter(x => x.role === 'citizen').sort((a, b) => b.wallet - a.wallet).slice(0, 5);
-        const wL = AppState.db.users.filter(x => x.role === 'worker').sort((a, b) => b.wallet - a.wallet).slice(0, 5);
+    function verifyWaste(id) {
+      try {
+        const db = getDB();
+        const submission = db.wasteSubmissions.find(s => s.id === id);
 
-        const getRows = (arr) => arr.length === 0 ? '' : arr.map((x, i) => `<div class="flex justify-between p-2 border-b border-[#222] text-xs font-mono"><span class="${i === 0 ? 'text-[var(--gold)] font-bold' : ''}">${i === 0 ? '🥇' : (i + 1 + '.')} ${x.email.split('@')[0]}</span><span class="text-white">${x.wallet} ZC</span></div>`).join('');
+        if (!submission || submission.status !== "pending") { alert("Already verified."); return; }
 
+        if (workerLat === null || workerLng === null) {
+          alert("Worker location not captured.");
+          return;
+        }
+
+        const distance = getDistance(workerLat, workerLng, submission.lat, submission.lng);
+        if (distance > 500) { alert("You must be within 500 meters to verify."); return; }
+
+        submission.status = "verified";
+
+        const citizen = db.users.find(u => u.id === submission.userId);
+        const worker = db.users.find(u => u.id === currentUser.id);
+
+        if (citizen) citizen.wallet += 10;
+        if (worker) {
+          worker.wallet += 15;
+
+          const today = new Date().toISOString().split('T')[0];
+          if (worker.lastWorkDate !== today) {
+            worker.dailyCount = 0;
+            worker.lastWorkDate = today;
+          }
+          worker.dailyCount = (worker.dailyCount || 0) + 1;
+
+          if (worker.dailyCount % 10 === 0) {
+            worker.wallet += 20;
+            db.reserve -= 20;
+            alert(`Milestone! 10 orders completed today. +20 ZC Bonus!`);
+          }
+        }
+        db.reserve += 25;
+
+        saveDB(db);
+        alert("Verification successful. Rewards distributed.");
+        renderWorker();
+      } catch (e) {
+        console.error("Verify Waste Error:", e);
+      }
+    }
+
+    /* =========================
+       NGO ENGINE (Maintained consistency)
+    ========================= */
+    function renderNGO() {
+      const db = getDB();
+      const now = Date.now();
+
+      let dbUpdated = false;
+      db.foodTickets.forEach(t => {
+        if (t.status === 'open' && t.expiry && now > t.expiry) {
+          t.status = 'expired';
+          dbUpdated = true;
+        }
+      });
+      if (dbUpdated) saveDB(db);
+
+      const myTickets = db.foodTickets.filter(t => t.ngoId === currentUser.id) || [];
+      const totalRequested = myTickets.reduce((sum, t) => sum + t.requiredQty, 0);
+      const totalFulfilled = myTickets.reduce((sum, t) => sum + (t.requiredQty - t.remainingQty), 0);
+
+      document.getElementById("app").innerHTML = `
+    <div class="p-10 max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-8 border-b border-gray-800 pb-4">
+            <div>
+                <h1 class="text-2xl text-yellow-400 font-bold uppercase tracking-widest">NGO Protocol</h1>
+                <p class="text-xs text-gray-500 font-mono mt-1">Node: ${currentUser.email}</p>
+            </div>
+            <button onclick="logout()" class="border border-red-500/50 text-red-500 hover:bg-red-500/10 px-4 py-2 rounded text-xs uppercase tracking-widest transition-colors">Logout</button>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-6 mb-8">
+            <div class="card p-6 rounded shadow-xl border-l-2 border-blue-500">
+                <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Total Assets Requested</div>
+                <div class="text-3xl gold font-mono">${totalRequested}</div>
+            </div>
+            <div class="card p-6 rounded shadow-xl border-l-2 border-green-500">
+                <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Assets Fulfilled</div>
+                <div class="text-3xl gold font-mono">${totalFulfilled}</div>
+            </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-6">
+            <div class="card p-6 rounded shadow-xl border border-yellow-500/30 h-fit">
+                <h3 class="gold font-bold uppercase tracking-widest mb-4 border-b border-gray-800 pb-2">Broadcast Demand Ledger</h3>
+                <input id="ngoItem" placeholder="Target Asset Resource (e.g., Rice, Water)" class="w-full bg-black border border-gray-700 rounded p-3 mb-4 text-sm outline-none font-mono focus:border-yellow-500">
+                <input id="ngoQty" type="number" placeholder="Required Quantity" class="w-full bg-black border border-gray-700 rounded p-3 mb-6 text-sm outline-none font-mono focus:border-yellow-500">
+                <button onclick="raiseTicket()" class="gold-btn w-full px-3 py-3 rounded text-sm uppercase tracking-widest font-bold">Raise Global Ledger</button>
+            </div>
+
+            <div class="card p-6 rounded shadow-xl border border-gray-800">
+                <h3 class="gold font-bold uppercase tracking-widest mb-4 border-b border-gray-800 pb-2">Active Ledgers</h3>
+                ${db.foodTickets.length === 0 ? '<p class="text-xs italic text-gray-600">No network ledgers active.</p>' : ''}
+                <div class="space-y-4 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+                    ${db.foodTickets.slice().reverse().map(f => {
+        const timeLeft = f.expiry ? Math.max(0, f.expiry - Date.now()) : 0;
+        const hrs = Math.floor(timeLeft / 3600000);
+        const mins = Math.floor((timeLeft % 3600000) / 60000);
         return `
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 card bg-[#0f0f0f]/50 border-t-0 p-6">
-                    <div><h3 class="text-[10px] uppercase text-gray-500 font-bold border-b border-[#333] pb-2 mb-2 text-center">Top Citizens</h3>${getRows(cL)}</div>
-                    <div><h3 class="text-[10px] uppercase text-gray-500 font-bold border-b border-[#333] pb-2 mb-2 text-center">Top Workers</h3>${getRows(wL)}</div>
-                </div>`;
-      }
-    };
+                        <div class="bg-gray-900 border ${f.status === 'open' ? 'border-blue-500/50' : (f.status === 'expired' ? 'border-red-500/50' : 'border-green-500/50')} p-4 rounded shadow-lg transition-all 0.3s hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-yellow-400 font-bold uppercase text-sm">${f.item}</span>
+                                <div class="flex gap-2 items-center">
+                                  ${f.status === 'open' && f.expiry ? `<span class="text-[9px] text-gray-400 font-mono tracking-widest">${hrs}h ${mins}m left</span>` : ''}
+                                  <span class="text-[10px] uppercase px-2 py-1 rounded ${f.status === 'open' ? 'bg-blue-900/50 text-blue-300' : (f.status === 'expired' ? 'bg-red-900/50 text-red-300' : 'bg-green-900/50 text-green-300')}">${f.status}</span>
+                                </div>
+                            </div>
+                            <div class="w-full bg-black rounded-full h-1.5 mb-2">
+                                <div class="bg-blue-500 h-1.5 rounded-full" style="width: ${((f.requiredQty - f.remainingQty) / f.requiredQty) * 100}%"></div>
+                            </div>
+                            <div class="flex justify-between text-[10px] text-gray-400 font-mono">
+                                <span>Fulfilled: ${f.requiredQty - f.remainingQty}</span>
+                                <span>Req: ${f.requiredQty}</span>
+                            </div>
+                        </div>
+                    `}).join('')}
+                </div>
+            </div>
+        </div>
+    </div>
+  `;
+    }
 
-    window.onload = () => { Engine.init(); };
+    function raiseTicket() {
+
+      const item = document.getElementById("ngoItem").value.trim();
+      const qty = parseInt(document.getElementById("ngoQty").value);
+
+      if (!item || !qty || qty <= 0) {
+        alert("Invalid input");
+        return;
+      }
+
+      const db = getDB();
+
+      const ticket = {
+        id: Date.now(),
+        ngoId: currentUser.id,
+        item: item,
+        requiredQty: qty,
+        remainingQty: qty,
+        status: "open",
+        expiry: Date.now() + (24 * 60 * 60 * 1000),
+        contributors: []
+      };
+
+      db.foodTickets.push(ticket);
+
+      saveDB(db);
+
+      alert("Ticket created");
+
+      renderNGO();
+    }
+
+    /* =========================
+       ADMIN ENGINE (Analytics & Withdrawals)
+    ========================= */
+    function renderAdmin() {
+      const db = getDB();
+      const totalUsers = db.users.length;
+      const totalWaste = db.wasteSubmissions.length;
+      const verifiedWaste = db.wasteSubmissions.filter(s => s.status === "verified").length;
+      const totalDistributed = db.users.reduce((sum, u) => sum + (u.wallet || 0), 0);
+      const reserve = db.reserve;
+      const reserveRatio = totalDistributed === 0 ? 100 : ((reserve / (reserve + totalDistributed)) * 100).toFixed(2);
+      let status = "Healthy";
+      if (reserveRatio < 20) status = "Risk";
+      else if (reserveRatio < 40) status = "Monitor";
+
+      const pendingWithdrawals = db.withdrawals.filter(w => w.status === "pending");
+
+      document.getElementById("app").innerHTML = "";
+      document.getElementById("app").innerHTML = `
+  <div class="p-10 max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-8 border-b border-gray-800 pb-4">
+      <div>
+        <h2 class="text-2xl gold font-bold uppercase tracking-widest">Admin Dashboard</h2>
+        <p class="text-xs text-gray-500 font-mono mt-1">Node: ${currentUser.email}</p>
+      </div>
+      <button onclick="logout()" class="border border-red-500/50 text-red-500 px-4 py-2 rounded uppercase tracking-widest text-xs hover:bg-red-500/10 transition-colors">Logout</button>
+    </div>
+
+    <div class="grid md:grid-cols-4 gap-6 mb-10">
+      <div class="card p-6 rounded shadow-lg border-l-2 border-purple-500">
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Total Users</div>
+        <div class="text-3xl gold font-mono">${totalUsers}</div>
+      </div>
+      <div class="card p-6 rounded shadow-lg border-l-2 border-yellow-500">
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Total Waste</div>
+        <div class="text-3xl gold font-mono">${totalWaste}</div>
+      </div>
+      <div class="card p-6 rounded shadow-lg border-l-2 border-green-500">
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Verified Waste</div>
+        <div class="text-3xl gold font-mono">${verifiedWaste}</div>
+      </div>
+      <div class="card p-6 rounded shadow-lg border-l-2 border-blue-500">
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Food Ledgers</div>
+        <div class="text-3xl gold font-mono">${db.foodTickets.length}</div>
+      </div>
+      <div class="card p-6 rounded shadow-lg border-l-2 border-purple-500">
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Reserve Ratio</div>
+        <div class="text-2xl gold font-mono">${reserveRatio}% <span class="text-xs text-gray-400 block">${status}</span></div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+      <div class="card p-4 rounded shadow-lg border border-gray-800"><h4 class="text-xs gold uppercase text-center mb-2">Worker Activity</h4><canvas id="workerChart"></canvas></div>
+      <div class="card p-4 rounded shadow-lg border border-gray-800"><h4 class="text-xs gold uppercase text-center mb-2">Garden Adoption</h4><canvas id="gardenChart"></canvas></div>
+      <div class="card p-4 rounded shadow-lg border border-gray-800"><h4 class="text-xs gold uppercase text-center mb-2">CO2 Growth</h4><canvas id="co2Chart"></canvas></div>
+      <div class="card p-4 rounded shadow-lg border border-gray-800"><h4 class="text-xs gold uppercase text-center mb-2">NGO Fulfillment</h4><canvas id="ngoChart"></canvas></div>
+      <div class="card p-4 rounded shadow-lg border border-gray-800 lg:col-span-2"><h4 class="text-xs gold uppercase text-center mb-2">Reserve Health Gauge</h4><canvas id="reserveChart"></canvas></div>
+    </div>
+
+    <!-- Approvals -->
+    <div class="card p-6 rounded shadow-lg border border-gray-800 max-w-3xl">
+      <h3 class="gold mb-4 uppercase font-bold tracking-widest border-b border-gray-800 pb-2">Pending Withdrawals</h3>
+      <div class="space-y-3">
+        ${pendingWithdrawals.length === 0
+          ? "<p class='text-gray-500 text-sm italic'>No pending withdrawals.</p>"
+          : pendingWithdrawals.map(w => `
+            <div class="bg-gray-900 border border-gray-700 p-4 rounded flex justify-between items-center text-sm font-mono">
+              <div>
+                  <div class="text-yellow-500">Request ID: ${w.id}</div>
+                  <div class="text-gray-400">Node ID: ${w.userId} | Amt: ${w.amount} ZC</div>
+              </div>
+              <button onclick="approveWithdrawal(${w.id})" class="gold-btn px-4 py-2 rounded text-xs uppercase shadow">Approve</button>
+            </div>
+          `).join("")
+        }
+      </div>
+    </div>
+  </div>
+  `;
+
+      renderCharts(db, totalDistributed);
+    }
+
+    function approveWithdrawal(id) {
+      try {
+        const db = getDB();
+        const withdrawal = db.withdrawals.find(w => w.id === id);
+        if (!withdrawal || withdrawal.status !== "pending") { alert("Already processed."); return; }
+
+        withdrawal.status = "approved";
+        db.reserve -= withdrawal.amount;
+        saveDB(db);
+
+        alert("Withdrawal approved.");
+        renderAdmin();
+      } catch (e) {
+        console.error("Approve Withdrawal Error:", e);
+      }
+    }
+
+    function renderCharts(db, totalDistributed) {
+      try {
+        if (window.workerChart) window.workerChart.destroy();
+        if (window.gardenChart) window.gardenChart.destroy();
+        if (window.co2Chart) window.co2Chart.destroy();
+        if (window.ngoChart) window.ngoChart.destroy();
+        if (window.reserveChart) window.reserveChart.destroy();
+
+        Chart.defaults.color = "#999";
+        Chart.defaults.font.family = "'Inter', sans-serif";
+
+        const ctx1 = document.getElementById("workerChart");
+        if (ctx1) {
+          window.workerChart = new Chart(ctx1, {
+            type: "bar",
+            data: {
+              labels: ["Total Scans", "Verified"],
+              datasets: [{
+                data: [
+                  db.wasteSubmissions.length,
+                  db.wasteSubmissions.filter(s => s.status === "verified").length
+                ],
+                backgroundColor: ["#444", "#D4AF37"],
+                borderRadius: 4
+              }]
+            },
+            options: { plugins: { legend: { display: false } } }
+          });
+        }
+
+        const gardenUsers = db.users.filter(u => u.gardenStage > 0).length;
+        const ctx2 = document.getElementById("gardenChart");
+        if (ctx2) {
+          window.gardenChart = new Chart(ctx2, {
+            type: "doughnut",
+            data: {
+              labels: ["Active Gardens", "Inactive"],
+              datasets: [{
+                data: [gardenUsers, db.users.length - gardenUsers],
+                backgroundColor: ["#00FF00", "#111"],
+                borderWidth: 0
+              }]
+            }
+          });
+        }
+
+        const totalCO2 = db.users.reduce((sum, u) => sum + (u.co2 || 0), 0);
+        const ctx3 = document.getElementById("co2Chart");
+        if (ctx3) {
+          window.co2Chart = new Chart(ctx3, {
+            type: "line",
+            data: {
+              labels: ["Start", "Now"],
+              datasets: [{
+                data: [0, totalCO2],
+                borderColor: "#00FF00",
+                tension: 0.4,
+                fill: true,
+                backgroundColor: "rgba(0, 255, 0, 0.1)"
+              }]
+            },
+            options: { plugins: { legend: { display: false } } }
+          });
+        }
+
+        const totalReq = db.foodTickets.reduce((sum, t) => sum + t.requiredQty, 0);
+        const totalFulf = db.foodTickets.reduce((sum, t) => sum + (t.requiredQty - t.remainingQty), 0);
+        const ctx4 = document.getElementById("ngoChart");
+        if (ctx4) {
+          window.ngoChart = new Chart(ctx4, {
+            type: "pie",
+            data: {
+              labels: ["Fulfilled", "Pending"],
+              datasets: [{
+                data: [totalFulf, totalReq - totalFulf],
+                backgroundColor: ["#3b82f6", "#111"],
+                borderWidth: 0
+              }]
+            }
+          });
+        }
+
+        const ctx5 = document.getElementById("reserveChart");
+        if (ctx5) {
+          window.reserveChart = new Chart(ctx5, {
+            type: "doughnut",
+            data: {
+              labels: ["Reserve", "Distributed"],
+              datasets: [{
+                data: [db.reserve, totalDistributed],
+                backgroundColor: ["#D4AF37", "#f43f5e"],
+                borderWidth: 0
+              }]
+            },
+            options: {
+              circumference: 180,
+              rotation: -90,
+              plugins: { legend: { position: 'bottom' } }
+            }
+          });
+        }
+      } catch (e) {
+        console.error("Render Charts Error:", e);
+      }
+    }
+
+    /* =========================
+       ANIMATIONS
+    ========================= */
+    const waveCanvas = document.getElementById("waveCanvas");
+    const wctx = waveCanvas.getContext("2d");
+    function resizeCanvas() {
+      waveCanvas.width = window.innerWidth;
+      waveCanvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    let waveOffset = 0;
+    let waveReq;
+    function animateWave() {
+      if (!wctx) return;
+      wctx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
+      wctx.beginPath();
+      wctx.moveTo(0, waveCanvas.height / 2);
+      for (let x = 0; x < waveCanvas.width; x++) {
+        const y = waveCanvas.height / 2 + Math.sin((x + waveOffset) * 0.01) * 20;
+        wctx.lineTo(x, y);
+      }
+      wctx.strokeStyle = "rgba(212,175,55,0.08)";
+      wctx.lineWidth = 2;
+      wctx.stroke();
+
+      waveOffset += 1;
+      waveReq = requestAnimationFrame(animateWave);
+    }
+    if (waveReq) cancelAnimationFrame(waveReq);
+    animateWave();
+
+    const particleCanvas = document.getElementById("particleCanvas");
+    const pctx = particleCanvas ? particleCanvas.getContext("2d") : null;
+    if (particleCanvas) {
+      particleCanvas.width = window.innerWidth;
+      particleCanvas.height = window.innerHeight;
+    }
+
+    let particles = [];
+    if (particleCanvas) {
+      for (let i = 0; i < 50; i++) {
+        particles.push({
+          x: Math.random() * particleCanvas.width,
+          y: Math.random() * particleCanvas.height,
+          r: Math.random() * 2,
+          speed: Math.random() * 0.5 + 0.2
+        });
+      }
+    }
+
+    let particleReq;
+    function animateParticles() {
+      if (!pctx) return;
+      pctx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+      pctx.fillStyle = "rgba(212,175,55,0.4)";
+      particles.forEach(p => {
+        pctx.beginPath();
+        pctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        pctx.fill();
+        p.y -= p.speed;
+        if (p.y < 0) {
+          p.y = particleCanvas.height;
+        }
+      });
+      particleReq = requestAnimationFrame(animateParticles);
+    }
+    if (particleReq) cancelAnimationFrame(particleReq);
+    animateParticles();
+
+    /* =========================
+       SAFE APP START
+    ========================= */
+
+    function startApp() {
+
+      const db = getDB();
+
+      if (!currentUser) {
+        renderLogin();
+      } else {
+        renderDashboard();
+      }
+
+    }
+
+    startApp();
   </script>
 </body>
 
