@@ -1055,11 +1055,11 @@
 
     <!-- Charts -->
     <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-      <div class="card p-4 rounded shadow-lg border border-gray-800"><h4 class="text-xs gold uppercase text-center mb-2">Worker Activity</h4><canvas id="workerChart"></canvas></div>
+      <div class="card p-4 rounded shadow-lg border border-gray-800"><h4 class="text-xs gold uppercase text-center mb-2">Worker Activity</h4><canvas id="workerActivityChart"></canvas></div>
       <div class="card p-4 rounded shadow-lg border border-gray-800"><h4 class="text-xs gold uppercase text-center mb-2">Garden Adoption</h4><canvas id="gardenChart"></canvas></div>
       <div class="card p-4 rounded shadow-lg border border-gray-800"><h4 class="text-xs gold uppercase text-center mb-2">CO2 Growth</h4><canvas id="co2Chart"></canvas></div>
       <div class="card p-4 rounded shadow-lg border border-gray-800"><h4 class="text-xs gold uppercase text-center mb-2">NGO Fulfillment</h4><canvas id="ngoChart"></canvas></div>
-      <div class="card p-4 rounded shadow-lg border border-gray-800 lg:col-span-2"><h4 class="text-xs gold uppercase text-center mb-2">Reserve Health Gauge</h4><canvas id="reserveChart"></canvas></div>
+      <div class="card p-4 rounded shadow-lg border border-gray-800 lg:col-span-2"><h4 class="text-xs gold uppercase text-center mb-2">Reserve Health Gauge</h4><canvas id="reserveGauge"></canvas></div>
     </div>
 
     <!-- Approvals -->
@@ -1103,110 +1103,221 @@
       }
     }
 
-    function renderCharts(db, totalDistributed) {
-      try {
-        if (window.workerChart) window.workerChart.destroy();
-        if (window.gardenChart) window.gardenChart.destroy();
-        if (window.co2Chart) window.co2Chart.destroy();
-        if (window.ngoChart) window.ngoChart.destroy();
-        if (window.reserveChart) window.reserveChart.destroy();
+    /* =========================
+       DEMO DATA GENERATOR
+    ========================= */
 
-        Chart.defaults.color = "#999";
-        Chart.defaults.font.family = "'Inter', sans-serif";
+    function seedDemoData() {
 
-        const ctx1 = document.getElementById("workerChart");
-        if (ctx1) {
-          window.workerChart = new Chart(ctx1, {
-            type: "bar",
-            data: {
-              labels: ["Total Scans", "Verified"],
-              datasets: [{
-                data: [
-                  db.wasteSubmissions.length,
-                  db.wasteSubmissions.filter(s => s.status === "verified").length
-                ],
-                backgroundColor: ["#444", "#D4AF37"],
-                borderRadius: 4
-              }]
-            },
-            options: { plugins: { legend: { display: false } } }
-          });
-        }
+      const db = getDB();
 
-        const gardenUsers = db.users.filter(u => u.gardenStage > 0).length;
-        const ctx2 = document.getElementById("gardenChart");
-        if (ctx2) {
-          window.gardenChart = new Chart(ctx2, {
-            type: "doughnut",
-            data: {
-              labels: ["Active Gardens", "Inactive"],
-              datasets: [{
-                data: [gardenUsers, db.users.length - gardenUsers],
-                backgroundColor: ["#00FF00", "#111"],
-                borderWidth: 0
-              }]
-            }
-          });
-        }
+      if (db.wasteSubmissions.length > 0) return;
 
-        const totalCO2 = db.users.reduce((sum, u) => sum + (u.co2 || 0), 0);
-        const ctx3 = document.getElementById("co2Chart");
-        if (ctx3) {
-          window.co2Chart = new Chart(ctx3, {
-            type: "line",
-            data: {
-              labels: ["Start", "Now"],
-              datasets: [{
-                data: [0, totalCO2],
-                borderColor: "#00FF00",
-                tension: 0.4,
-                fill: true,
-                backgroundColor: "rgba(0, 255, 0, 0.1)"
-              }]
-            },
-            options: { plugins: { legend: { display: false } } }
-          });
-        }
+      for (let i = 0; i < 20; i++) {
 
-        const totalReq = db.foodTickets.reduce((sum, t) => sum + t.requiredQty, 0);
-        const totalFulf = db.foodTickets.reduce((sum, t) => sum + (t.requiredQty - t.remainingQty), 0);
-        const ctx4 = document.getElementById("ngoChart");
-        if (ctx4) {
-          window.ngoChart = new Chart(ctx4, {
-            type: "pie",
-            data: {
-              labels: ["Fulfilled", "Pending"],
-              datasets: [{
-                data: [totalFulf, totalReq - totalFulf],
-                backgroundColor: ["#3b82f6", "#111"],
-                borderWidth: 0
-              }]
-            }
-          });
-        }
+        db.wasteSubmissions.push({
+          id: Date.now() + i,
+          userId: 3,
+          lat: 20.5937 + Math.random() * 0.01,
+          lng: 78.9629 + Math.random() * 0.01,
+          status: i < 15 ? "verified" : "pending"
+        });
 
-        const ctx5 = document.getElementById("reserveChart");
-        if (ctx5) {
-          window.reserveChart = new Chart(ctx5, {
-            type: "doughnut",
-            data: {
-              labels: ["Reserve", "Distributed"],
-              datasets: [{
-                data: [db.reserve, totalDistributed],
-                backgroundColor: ["#D4AF37", "#f43f5e"],
-                borderWidth: 0
-              }]
-            },
-            options: {
-              circumference: 180,
-              rotation: -90,
-              plugins: { legend: { position: 'bottom' } }
-            }
-          });
-        }
-      } catch (e) {
-        console.error("Render Charts Error:", e);
       }
+
+      for (let i = 0; i < 5; i++) {
+
+        db.gardens.push({
+          id: Date.now() + 100 + i,
+          userId: 2,
+          plants: 10 + i,
+          trees: 1
+        });
+
+      }
+
+      for (let i = 0; i < 3; i++) {
+
+        db.foodTickets.push({
+          id: Date.now() + 200 + i,
+          ngoId: 4,
+          item: "Rice",
+          requiredQty: 100,
+          remainingQty: 30,
+          status: "open",
+          contributors: []
+        });
+
+      }
+
+      db.withdrawals.push({
+        id: Date.now() + 500,
+        userId: 2,
+        amount: 200,
+        status: "pending"
+      });
+
+      saveDB(db);
+
+    }
+
+    /* =========================
+       ANALYTICS ENGINE
+    ========================= */
+
+    function computeAnalytics() {
+
+      const db = getDB();
+
+      const verified = db.wasteSubmissions.filter(s => s.status === "verified").length;
+
+      const workers = db.users.filter(u => u.role === "worker").length;
+
+      const gardens = db.gardens.length;
+
+      const co2 = verified * 0.5;
+
+      const ngoRequested = db.foodTickets.reduce((a, b) => a + b.requiredQty, 0);
+
+      const ngoFulfilled = db.foodTickets.reduce((a, b) => a + (b.requiredQty - b.remainingQty), 0);
+
+      const distributed = db.users.reduce((a, b) => a + (b.wallet || 0), 0);
+
+      const reserveRatio = (db.reserve / (db.reserve + distributed)) * 100;
+
+      return {
+
+        workers,
+        verified,
+        gardens,
+        co2,
+        ngoRequested,
+        ngoFulfilled,
+        reserveRatio
+
+      };
+
+    }
+
+    /* =========================
+       CHART RENDERER
+    ========================= */
+
+    function renderAdminCharts() {
+      if (window.workerActivityChart) window.workerActivityChart.destroy();
+      if (window.gardenChart) window.gardenChart.destroy();
+      if (window.co2Chart) window.co2Chart.destroy();
+      if (window.ngoChart) window.ngoChart.destroy();
+      if (window.reserveGauge) window.reserveGauge.destroy();
+
+      const data = computeAnalytics();
+
+      Chart.defaults.color = "#aaa";
+
+      /* Worker Activity */
+
+      window.workerActivityChart = new Chart(
+        document.getElementById("workerActivityChart"),
+        {
+          type: "bar",
+          data: {
+            labels: ["Workers", "Verified"],
+            datasets: [{
+              data: [data.workers, data.verified],
+              backgroundColor: ["#888", "#D4AF37"]
+            }]
+          },
+          options: { plugins: { legend: { display: false } } }
+        }
+      );
+
+      /* Garden Adoption */
+
+      window.gardenChart = new Chart(
+        document.getElementById("gardenChart"),
+        {
+          type: "line",
+          data: {
+            labels: ["Stage1", "Stage2", "Stage3"],
+            datasets: [{
+              data: [data.gardens / 3, data.gardens / 2, data.gardens],
+              borderColor: "#00ff9c",
+              tension: 0.4
+            }]
+          },
+          options: { plugins: { legend: { display: false } } }
+        }
+      );
+
+      /* CO2 */
+
+      window.co2Chart = new Chart(
+        document.getElementById("co2Chart"),
+        {
+          type: "bar",
+          data: {
+            labels: ["CO2 Saved"],
+            datasets: [{
+              data: [data.co2],
+              backgroundColor: "#00e5ff"
+            }]
+          },
+          options: { plugins: { legend: { display: false } } }
+        }
+      );
+
+      /* NGO */
+
+      window.ngoChart = new Chart(
+        document.getElementById("ngoChart"),
+        {
+          type: "doughnut",
+          data: {
+            labels: ["Fulfilled", "Remaining"],
+            datasets: [{
+              data: [
+                data.ngoFulfilled,
+                data.ngoRequested - data.ngoFulfilled
+              ],
+              backgroundColor: ["#4caf50", "#444"]
+            }]
+          }
+        }
+      );
+
+      /* Reserve Health */
+
+      window.reserveGauge = new Chart(
+        document.getElementById("reserveGauge"),
+        {
+          type: "doughnut",
+          data: {
+            labels: ["Reserve", "Distributed"],
+            datasets: [{
+              data: [
+                data.reserveRatio,
+                100 - data.reserveRatio
+              ],
+              backgroundColor: ["#D4AF37", "#222"]
+            }]
+          }
+        }
+      );
+
+    }
+
+    /* =========================
+       AUTO INITIALIZE
+    ========================= */
+
+    function initAdminAnalytics() {
+
+      seedDemoData();
+
+      setTimeout(() => {
+        renderAdminCharts();
+      }, 300);
+
     }
 
     /* =========================
