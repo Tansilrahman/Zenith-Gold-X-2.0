@@ -101,6 +101,7 @@
 </head>
 
 <body>
+  <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
   <canvas id="waveCanvas"></canvas>
   <canvas id="particleCanvas"></canvas>
@@ -116,6 +117,22 @@
   <div id="app" class="relative z-10 w-full min-h-screen"></div>
 
   <script>
+    function showToast(msg) {
+      const container = document.getElementById("toastContainer");
+      if (!container) return;
+      const el = document.createElement("div");
+      el.className = "px-6 py-3 rounded shadow-2xl font-mono text-xs backdrop-blur-md bg-black/80 border border-yellow-500/50 text-yellow-400 transform transition-all duration-300 translate-x-20 opacity-0 pointer-events-auto shadow-[0_4px_20px_rgba(212,175,55,0.2)]";
+      el.innerText = msg;
+      container.appendChild(el);
+      requestAnimationFrame(() => {
+        el.classList.remove("translate-x-20", "opacity-0");
+      });
+      setTimeout(() => {
+        el.classList.add("translate-x-20", "opacity-0");
+        setTimeout(() => el.remove(), 300);
+      }, 3500);
+    }
+
     /* =========================
        ZGX MASTER DATABASE ENGINE
     ========================= */
@@ -285,6 +302,10 @@
 
       }
 
+
+      if (!db.loginLogs) db.loginLogs = [];
+      db.loginLogs.push({ email: user.email, role: user.role, time: Date.now() });
+      saveDB(db);
       setSession(user);
 
       render();
@@ -441,7 +462,7 @@
                 <input type="number" id="plantCount" min="0" placeholder="Plants" class="w-1/2 p-2 bg-black border border-gray-700 rounded text-xs outline-none focus:border-yellow-500"/>
                 <input type="number" id="treeCount" min="0" placeholder="Trees" class="w-1/2 p-2 bg-black border border-gray-700 rounded text-xs outline-none focus:border-yellow-500"/>
               </div>
-              <input type="file" id="gardenPhoto"
+              <input type="file" accept="image/*" capture="environment" id="gardenPhoto"
                 class="mb-4 w-full p-2 bg-black border border-gray-700 rounded text-xs"/>
               <button onclick="updateGarden()" class="bg-green-600 hover:bg-green-700 transition-colors text-white w-full px-6 py-3 rounded uppercase text-sm font-bold">
                 Submit Garden Update
@@ -453,7 +474,7 @@
 
             <div class="card p-6 rounded shadow-lg border border-yellow-500/30">
               <h3 class="gold mb-4 uppercase tracking-widest font-bold">Upload Waste</h3>
-              <input type="file" id="wastePhoto"
+              <input type="file" accept="image/*" capture="environment" id="wastePhoto"
                 class="mb-4 w-full p-2 bg-black border border-gray-700 rounded text-xs"/>
               <div id="map" style="height:300px;" class="mb-4 rounded border border-gray-800"></div>
               <button id="wasteSubmitBtn" onclick="submitWaste()" class="gold-btn w-full px-6 py-3 rounded uppercase text-sm font-bold">
@@ -485,6 +506,7 @@
           attribution: '© OpenStreetMap'
         }).addTo(map);
 
+        const geoOptions = { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 };
         navigator.geolocation.getCurrentPosition(position => {
           currentLat = position.coords.latitude;
           currentLng = position.coords.longitude;
@@ -496,8 +518,8 @@
           }
         }, error => {
           console.error("Geolocation Error:", error);
-          alert("Location permission required to use map features.");
-        });
+          showToast("Location permission required to use map features.");
+        }, geoOptions);
       } catch (e) {
         console.error("Map Initialization Error:", e);
       }
@@ -506,13 +528,13 @@
     function submitWaste() {
       try {
         const photo = document.getElementById("wastePhoto").files[0];
-        if (!photo) { alert("Please upload waste photo."); return; }
-        if (photo.size < 1024 * 10) { alert("AI Confidence Low: File size < 10kb. Rejected."); return; }
-        if (currentLat === null || currentLng === null) { alert("Location not captured yet. Please allow permissions."); return; }
+        if (!photo) { showToast("Please upload waste photo."); return; }
+        if (photo.size < 1024 * 10) { showToast("AI Confidence Low: File size < 10kb. Rejected."); return; }
+        if (currentLat === null || currentLng === null) { showToast("Location not captured yet. Please allow permissions."); return; }
 
         const db = getDB();
         const pendingCheck = db.wasteSubmissions.find(s => s.userId === currentUser.id && s.status === "pending");
-        if (pendingCheck) { alert("You already have a pending submission."); return; }
+        if (pendingCheck) { showToast("You already have a pending submission."); return; }
 
         const btn = document.getElementById("wasteSubmitBtn");
         if (btn) {
@@ -532,7 +554,7 @@
             });
             saveDB(currentDb);
 
-            alert("Waste submitted successfully. Waiting for worker verification.");
+            showToast("Waste submitted successfully. Waiting for worker verification.");
             renderCitizen();
           } catch (e) {
             console.error("Waste Submit Timeout Error:", e);
@@ -552,18 +574,18 @@
         const db = getDB();
         const user = db.users.find(u => u.id === currentUser.id);
 
-        if (user.gardenStage >= 3) { alert("Garden reward already completed."); return; }
+        if (user.gardenStage >= 3) { showToast("Garden reward already completed."); return; }
 
         const plants = parseInt(document.getElementById("plantCount")?.value) || 0;
         const trees = parseInt(document.getElementById("treeCount")?.value) || 0;
 
         const photo = document.getElementById("gardenPhoto").files[0];
-        if (!photo) { alert("Upload garden photo."); return; }
-        if (currentLat === null || currentLng === null) { alert("Location not captured yet. Please allow permissions."); return; }
+        if (!photo) { showToast("Upload garden photo."); return; }
+        if (currentLat === null || currentLng === null) { showToast("Location not captured yet. Please allow permissions."); return; }
 
         if (user.gardenLat && user.gardenLng) {
           if (getDistance(currentLat, currentLng, user.gardenLat, user.gardenLng) > 500) {
-            alert("Location mismatch! You must upload from your registered garden location within 500m.");
+            showToast("Location mismatch! You must upload from your registered garden location within 500m.");
             return;
           }
         } else {
@@ -575,7 +597,7 @@
         if (user.lastGardenUpdate) {
           const diff = now - user.lastGardenUpdate;
           const days = diff / (1000 * 60 * 60 * 24);
-          if (days < 20) { alert("You must wait 20 days between garden updates."); return; }
+          if (days < 20) { showToast("You must wait 20 days between garden updates."); return; }
         }
 
         user.gardenStage = (user.gardenStage || 0) + 1;
@@ -591,9 +613,9 @@
         if (user.gardenStage === 3) {
           user.wallet += 50;
           db.reserve -= 50;
-          alert(`Garden milestone completed! 50 ZC credited + ${reward} ZC based on plants/trees.`);
+          showToast(`Garden milestone completed! 50 ZC credited + ${reward} ZC based on plants/trees.`);
         } else {
-          alert(`Garden update recorded. Stage ${user.gardenStage}/3. Earned ${reward} Z Coins.`);
+          showToast(`Garden update recorded. Stage ${user.gardenStage}/3. Earned ${reward} Z Coins.`);
         }
 
         saveDB(db);
@@ -634,7 +656,7 @@
 
       saveDB(db);
 
-      alert("Food donated");
+      showToast("Food donated");
 
       renderCitizen();
     }
@@ -646,8 +668,8 @@
         const amtEl = document.getElementById("withdrawAmount");
         const amount = amtEl ? parseInt(amtEl.value) : 0;
 
-        if (!amount || amount < 100) { alert("Minimum withdrawal is 100 Z Coins."); return; }
-        if (user.wallet < amount) { alert("Insufficient balance."); return; }
+        if (!amount || amount < 100) { showToast("Minimum withdrawal is 100 Z Coins."); return; }
+        if (user.wallet < amount) { showToast("Insufficient balance."); return; }
 
         user.wallet -= amount;
         db.withdrawals.push({
@@ -658,7 +680,7 @@
         });
 
         saveDB(db);
-        alert("Withdrawal request submitted for admin approval.");
+        showToast("Withdrawal request submitted for admin approval.");
         if (amtEl) amtEl.value = "";
         renderCitizen();
       } catch (e) {
@@ -671,12 +693,12 @@
         const db = getDB();
         const user = db.users.find(u => u.id === currentUser.id);
 
-        if (user.wallet < 200) { alert("Not enough Z Coins."); return; }
+        if (user.wallet < 200) { showToast("Not enough Z Coins."); return; }
         user.wallet -= 200;
         db.reserve -= 200;
         saveDB(db);
 
-        alert("Voucher redeemed successfully.");
+        showToast("Voucher redeemed successfully.");
         renderCitizen();
       } catch (e) {
         console.error("Redeem Voucher Error:", e);
@@ -688,15 +710,15 @@
         const db = getDB();
         const user = db.users.find(u => u.id === currentUser.id);
 
-        if (user.wallet < 500) { alert("Not enough Z Coins."); return; }
+        if (user.wallet < 500) { showToast("Not enough Z Coins."); return; }
         const confirmPass = prompt("Enter password to confirm UPI transfer:");
-        if (confirmPass !== currentUser.password) { alert("Authentication failed."); return; }
+        if (confirmPass !== currentUser.password) { showToast("Authentication failed."); return; }
 
         user.wallet -= 500;
         db.reserve -= 500;
         saveDB(db);
 
-        alert("UPI transfer initiated (Simulated).");
+        showToast("UPI transfer initiated (Simulated).");
         renderCitizen();
       } catch (e) {
         console.error("Redeem UPI Error:", e);
@@ -754,6 +776,7 @@
           attribution: '© OpenStreetMap'
         }).addTo(workerMap);
 
+        const geoOptions = { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 };
         navigator.geolocation.getCurrentPosition(position => {
           workerLat = position.coords.latitude;
           workerLng = position.coords.longitude;
@@ -767,8 +790,8 @@
           loadPendingSubmissions();
         }, error => {
           console.error("Worker Geolocation Error:", error);
-          alert("Location permission required for worker mapping.");
-        });
+          showToast("Location permission required for worker mapping.");
+        }, geoOptions);
       } catch (e) {
         console.error("Worker Map Init Error:", e);
       }
@@ -823,15 +846,15 @@
         const db = getDB();
         const submission = db.wasteSubmissions.find(s => s.id === id);
 
-        if (!submission || submission.status !== "pending") { alert("Already verified."); return; }
+        if (!submission || submission.status !== "pending") { showToast("Already verified."); return; }
 
         if (workerLat === null || workerLng === null) {
-          alert("Worker location not captured.");
+          showToast("Worker location not captured.");
           return;
         }
 
         const distance = getDistance(workerLat, workerLng, submission.lat, submission.lng);
-        if (distance > 500) { alert("You must be within 500 meters to verify."); return; }
+        if (distance > 500) { showToast("You must be within 500 meters to verify."); return; }
 
         submission.status = "verified";
 
@@ -852,13 +875,13 @@
           if (worker.dailyCount % 10 === 0) {
             worker.wallet += 20;
             db.reserve -= 20;
-            alert(`Milestone! 10 orders completed today. +20 ZC Bonus!`);
+            showToast(`Milestone! 10 orders completed today. +20 ZC Bonus!`);
           }
         }
         db.reserve += 25;
 
         saveDB(db);
-        alert("Verification successful. Rewards distributed.");
+        showToast("Verification successful. Rewards distributed.");
         renderWorker();
       } catch (e) {
         console.error("Verify Waste Error:", e);
@@ -953,7 +976,7 @@
       const qty = parseInt(document.getElementById("ngoQty").value);
 
       if (!item || !qty || qty <= 0) {
-        alert("Invalid input");
+        showToast("Invalid input");
         return;
       }
 
@@ -974,7 +997,7 @@
 
       saveDB(db);
 
-      alert("Ticket created");
+      showToast("Ticket created");
 
       renderNGO();
     }
@@ -1067,13 +1090,13 @@
       try {
         const db = getDB();
         const withdrawal = db.withdrawals.find(w => w.id === id);
-        if (!withdrawal || withdrawal.status !== "pending") { alert("Already processed."); return; }
+        if (!withdrawal || withdrawal.status !== "pending") { showToast("Already processed."); return; }
 
         withdrawal.status = "approved";
         db.reserve -= withdrawal.amount;
         saveDB(db);
 
-        alert("Withdrawal approved.");
+        showToast("Withdrawal approved.");
         renderAdmin();
       } catch (e) {
         console.error("Approve Withdrawal Error:", e);
