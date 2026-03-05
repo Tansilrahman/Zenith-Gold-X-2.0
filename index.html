@@ -943,7 +943,7 @@
     }
 
     /* =========================
-       NGO ENGINE (Maintained consistency)
+       NGO ENGINE
     ========================= */
     function renderNGO() {
       const db = getDB();
@@ -988,7 +988,7 @@
       </div>
 
       <div class="p-8">
-        <!-- Top Metrics Row -->
+        <!-- Metrics -->
         <div class="grid md:grid-cols-4 gap-4 mb-8">
           <div class="card p-5 rounded-xl border-l-2 border-blue-500 bg-gradient-to-r from-blue-500/5 to-transparent">
             <div class="text-[9px] text-gray-500 uppercase tracking-[0.2em] mb-1">Assets Requested</div>
@@ -1002,44 +1002,64 @@
             <div class="text-[9px] text-gray-500 uppercase tracking-[0.2em] mb-1">Active Ledgers</div>
             <div class="text-3xl font-mono font-bold text-purple-400">${myTickets.filter(t => t.status === 'open').length}</div>
           </div>
-          <div class="card p-5 rounded-xl border border-white/5 flex flex-col justify-between">
-            <div class="text-[9px] text-gray-500 uppercase tracking-[0.2em] mb-2">Contributors</div>
+          <div class="card p-5 rounded-xl border border-white/5">
+            <div class="text-[9px] text-gray-500 uppercase tracking-[0.2em] mb-2">Unique Contributors</div>
             <div class="text-3xl font-mono font-bold text-yellow-400">${allContributors.length}</div>
           </div>
         </div>
 
-        <!-- Fulfillment Ratio + Sentiment -->
-        <div class="grid md:grid-cols-2 gap-6 mb-8">
-          <div class="card p-6 rounded-xl border border-white/5 bg-black/30">
-            <h3 class="gold font-bold uppercase tracking-widest mb-4 text-sm">Fulfillment Ratio</h3>
-            <div class="flex items-end gap-3 mb-3">
-              <div class="text-5xl font-mono font-bold gold">${fulfillRatio}%</div>
-              <div class="text-sm text-gray-400 pb-2">of total demand met</div>
+        <!-- LIVE CHARTS ROW -->
+        <div class="grid md:grid-cols-3 gap-6 mb-8">
+          <div class="card p-6 rounded-xl border border-white/5 bg-black/30 flex flex-col items-center">
+            <h3 class="gold font-bold uppercase tracking-widest mb-3 text-sm self-start">Fulfillment Split</h3>
+            <div style="width:180px;height:180px;">
+              <canvas id="ngoDonut"></canvas>
             </div>
-            <div class="w-full bg-black/60 border border-gray-800 rounded-full h-4 overflow-hidden">
-              <div class="h-full rounded-full transition-all duration-1000" style="width:${fulfillRatio}%; background: linear-gradient(90deg, #B89222, #FFDF73)"></div>
-            </div>
-            <p class="text-[10px] text-gray-600 mt-2 font-mono">${totalFulfilled} / ${totalRequested} units</p>
           </div>
-
-          <div class="card p-6 rounded-xl border ${sentimentColor} border">
-            <h3 class="font-bold uppercase tracking-widest mb-4 text-sm ${sentimentColor.split(' ')[0]}">Donation Sentiment</h3>
-            <div class="flex items-center gap-4">
-              <div class="text-6xl">${sentimentEmoji}</div>
-              <div>
-                <div class="text-xl font-bold ${sentimentColor.split(' ')[0]}">${sentiment}</div>
-                <div class="text-xs text-gray-400 mt-1 font-mono">${fulfillRatio >= 70 ? 'Community highly engaged' : fulfillRatio >= 40 ? 'Moderate contribution flow' : 'Urgent: Low community response'}</div>
-              </div>
-            </div>
-            <div class="mt-4 flex gap-2">
-              ${[...Array(10)].map((_, i) => `<div class="flex-1 h-2 rounded-full ${i < Math.round(fulfillRatio / 10) ? 'bg-current opacity-80' : 'bg-gray-800'}"></div>`).join('')}
+          <div class="card p-6 rounded-xl border border-white/5 bg-black/30 md:col-span-2">
+            <h3 class="gold font-bold uppercase tracking-widest mb-3 text-sm">Per-Ledger Progress</h3>
+            <div style="height:170px;">
+              <canvas id="ngoBarChart"></canvas>
             </div>
           </div>
         </div>
 
-        <!-- Main Grid: Raise Ticket + Active Ledgers + Contributors -->
+        <!-- Sentiment + Contributors -->
+        <div class="grid md:grid-cols-2 gap-6 mb-8">
+          <div class="card p-6 rounded-xl border ${sentimentColor}">
+            <h3 class="font-bold uppercase tracking-widest mb-4 text-sm ${sentimentColor.split(' ')[0]}">Donation Sentiment</h3>
+            <div class="flex items-center gap-5 mb-5">
+              <div class="text-6xl leading-none">${sentimentEmoji}</div>
+              <div>
+                <div class="text-2xl font-bold ${sentimentColor.split(' ')[0]}">${sentiment}</div>
+                <div class="text-xs text-gray-400 mt-1 font-mono">${fulfillRatio >= 70 ? 'Community highly engaged' : fulfillRatio >= 40 ? 'Moderate contribution flow' : 'Urgent: Low community response'}</div>
+              </div>
+            </div>
+            <div class="flex gap-1.5 mb-4">${[...Array(10)].map((_, i) => `<div class="flex-1 h-2.5 rounded-full ${i < Math.round(fulfillRatio / 10) ? 'bg-current opacity-80' : 'bg-gray-800'}"></div>`).join('')}</div>
+            <div class="w-full bg-black/60 border border-gray-800 rounded-full h-4 overflow-hidden">
+              <div class="h-full rounded-full" style="width:${fulfillRatio}%;background:linear-gradient(90deg,#B89222,#FFDF73)"></div>
+            </div>
+            <p class="text-[10px] text-gray-600 mt-1.5 font-mono">${totalFulfilled} / ${totalRequested} units · ${fulfillRatio}%</p>
+          </div>
+
+          <div class="card p-6 rounded-xl border border-white/5 bg-black/30">
+            <h3 class="gold font-bold uppercase tracking-widest mb-4 text-sm">Top Contributors</h3>
+            ${allContributors.length === 0
+          ? '<p class="text-xs text-gray-600 italic py-6 text-center">No contributions yet. Share your ledger!</p>'
+          : `<div class="space-y-2">${allContributors.slice(0, 7).map((c, i) => `
+                <div class="flex justify-between items-center px-3 py-2.5 rounded-lg ${i === 0 ? 'bg-gradient-to-r from-yellow-500/15 to-transparent border border-yellow-500/25' : 'border border-gray-800/60'} transition-all">
+                  <div class="flex items-center gap-3">
+                    <span class="text-[10px] font-mono w-5 ${i === 0 ? 'text-yellow-400' : 'text-gray-600'}">#${i + 1}</span>
+                    <span class="text-sm font-mono ${i === 0 ? 'text-yellow-300' : 'text-gray-400'}">${c.email.split('@')[0]}</span>
+                  </div>
+                  <span class="text-xs font-mono ${i === 0 ? 'text-yellow-400 font-bold' : 'text-gray-500'}">${c.total} units</span>
+                </div>`).join('')}</div>`
+        }
+          </div>
+        </div>
+
+        <!-- Raise + All Ledgers -->
         <div class="grid lg:grid-cols-3 gap-6">
-          <!-- Raise Ticket -->
           <div class="card p-6 rounded-xl border border-yellow-500/20 bg-black/30">
             <h3 class="gold font-bold uppercase tracking-widest mb-5 text-sm">Broadcast Demand</h3>
             <label class="block text-[10px] text-gray-500 uppercase tracking-widest mb-2">Resource Type</label>
@@ -1049,50 +1069,112 @@
             <button onclick="raiseTicket()" class="gold-btn w-full px-3 py-3 rounded-lg text-sm uppercase tracking-widest font-bold">Raise Global Ledger</button>
           </div>
 
-          <!-- Active Ledgers -->
-          <div class="card p-6 rounded-xl border border-white/5 bg-black/30 lg:col-span-1">
-            <h3 class="gold font-bold uppercase tracking-widest mb-4 text-sm">Active Ledgers</h3>
-            <div class="space-y-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
-              ${db.foodTickets.length === 0 ? '<p class="text-xs italic text-gray-600">No ledgers active.</p>' : ''}
+          <div class="card p-6 rounded-xl border border-white/5 bg-black/30 lg:col-span-2">
+            <h3 class="gold font-bold uppercase tracking-widest mb-4 text-sm">All Ledgers</h3>
+            <div class="space-y-3 max-h-96 overflow-y-auto pr-1 custom-scrollbar">
+              ${db.foodTickets.length === 0 ? '<p class="text-xs italic text-gray-600 text-center py-4">No ledgers active.</p>' : ''}
               ${db.foodTickets.slice().reverse().map(f => {
-        const timeLeft = f.expiry ? Math.max(0, f.expiry - Date.now()) : 0;
-        const hrs = Math.floor(timeLeft / 3600000);
-        const mins = Math.floor((timeLeft % 3600000) / 60000);
-        const pct = Math.round(((f.requiredQty - f.remainingQty) / f.requiredQty) * 100);
-        return `
-                <div class="p-4 rounded-xl border ${f.status === 'open' ? 'border-blue-500/30 bg-blue-500/5' : f.status === 'expired' ? 'border-red-500/30 bg-red-500/5' : 'border-emerald-500/30 bg-emerald-500/5'}">
-                  <div class="flex justify-between items-start mb-2">
-                    <span class="text-yellow-400 font-bold text-sm">${f.item}</span>
-                    <span class="text-[9px] uppercase px-2 py-0.5 rounded border ${f.status === 'open' ? 'border-blue-500/40 text-blue-300' : f.status === 'expired' ? 'border-red-500/40 text-red-300' : 'border-emerald-500/40 text-emerald-300'}">${f.status}</span>
+          const timeLeft = f.expiry ? Math.max(0, f.expiry - Date.now()) : 0;
+          const hrs = Math.floor(timeLeft / 3600000);
+          const mins = Math.floor((timeLeft % 3600000) / 60000);
+          const fulfilled = f.requiredQty - f.remainingQty;
+          const pct = Math.round((fulfilled / f.requiredQty) * 100);
+          const contribCount = (f.contributors || []).length;
+          return `
+                <div class="p-4 rounded-xl border ${f.status === 'open' ? 'border-blue-500/30 bg-blue-500/5' : f.status === 'expired' ? 'border-red-500/30 bg-red-500/5' : 'border-emerald-500/30 bg-emerald-500/5'} transition-all">
+                  <div class="flex justify-between items-start mb-3">
+                    <div>
+                      <span class="text-yellow-400 font-bold text-sm">${f.item}</span>
+                      <span class="text-[9px] text-gray-500 font-mono ml-2">${contribCount} contributor${contribCount !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      ${f.status === 'open' && f.expiry ? `<span class="text-[9px] text-gray-400 font-mono">${hrs}h ${mins}m</span>` : ''}
+                      <span class="text-[9px] uppercase px-2 py-0.5 rounded border ${f.status === 'open' ? 'border-blue-500/40 text-blue-300' : f.status === 'expired' ? 'border-red-500/40 text-red-300' : 'border-emerald-500/40 text-emerald-300'}">${f.status}</span>
+                    </div>
                   </div>
-                  <div class="w-full bg-black/50 rounded-full h-1.5 mb-1">
-                    <div class="bg-gradient-to-r from-blue-600 to-blue-400 h-1.5 rounded-full" style="width:${pct}%"></div>
+                  <div class="w-full bg-black/50 rounded-full h-2 mb-1.5">
+                    <div class="bg-gradient-to-r from-blue-700 to-blue-400 h-2 rounded-full" style="width:${pct}%"></div>
                   </div>
                   <div class="flex justify-between text-[9px] text-gray-500 font-mono">
-                    <span>${pct}% fulfilled</span>
-                    ${f.status === 'open' && f.expiry ? `<span>${hrs}h ${mins}m</span>` : ''}
+                    <span>${fulfilled} / ${f.requiredQty} units</span><span>${pct}%</span>
                   </div>
                 </div>`;
-      }).join('')}
+        }).join('')}
             </div>
-          </div>
-
-          <!-- Top Contributors -->
-          <div class="card p-6 rounded-xl border border-white/5 bg-black/30">
-            <h3 class="gold font-bold uppercase tracking-widest mb-4 text-sm">Top Contributors</h3>
-            ${allContributors.length === 0
-          ? '<p class="text-xs text-gray-600 italic">No contributions yet.</p>'
-          : `<div class="space-y-2">${allContributors.slice(0, 8).map((c, i) => `
-                <div class="flex justify-between items-center p-2 rounded-lg ${i === 0 ? 'bg-yellow-500/10 border border-yellow-500/20' : ''} transition-all">
-                  <span class="text-xs font-mono text-gray-400">#${i + 1} ${c.email.split('@')[0]}</span>
-                  <span class="text-xs font-mono ${i === 0 ? 'text-yellow-400' : 'text-gray-500'}">${c.total} units</span>
-                </div>`).join('')}</div>`
-        }
           </div>
         </div>
       </div>
     </div>
   `;
+      setTimeout(renderNGOCharts, 200);
+    }
+
+    function renderNGOCharts() {
+      const db = getDB();
+      const myTickets = db.foodTickets.filter(t => t.ngoId === currentUser.id);
+      const totalFulfilled = myTickets.reduce((s, t) => s + (t.requiredQty - t.remainingQty), 0);
+      const totalRemaining = myTickets.reduce((s, t) => s + t.remainingQty, 0);
+
+      Chart.defaults.color = '#888';
+      Chart.defaults.font.family = "'Inter', sans-serif";
+
+      // Destroy old instances
+      ['ngoDonutInst', 'ngoBarInst'].forEach(k => { if (window[k]) { try { window[k].destroy(); } catch (e) { } window[k] = null; } });
+
+      // Doughnut — fulfilled vs remaining
+      const donutEl = document.getElementById('ngoDonut');
+      if (donutEl) {
+        window.ngoDonutInst = new Chart(donutEl, {
+          type: 'doughnut',
+          data: {
+            labels: ['Fulfilled', 'Remaining'],
+            datasets: [{
+              data: [totalFulfilled || 0, totalRemaining || (totalFulfilled === 0 ? 1 : 0)],
+              backgroundColor: ['#D4AF37', '#1c1c1c'],
+              borderColor: ['#FFDF7388', '#33333388'],
+              borderWidth: 1,
+              hoverOffset: 8
+            }]
+          },
+          options: {
+            cutout: '70%',
+            animation: { animateRotate: true, duration: 900 },
+            plugins: {
+              legend: { position: 'bottom', labels: { color: '#777', font: { size: 10 }, padding: 12 } }
+            }
+          }
+        });
+      }
+
+      // Bar — per-ticket
+      const barEl = document.getElementById('ngoBarChart');
+      if (barEl) {
+        const labels = myTickets.length > 0 ? myTickets.map(t => t.item.length > 12 ? t.item.slice(0, 12) + '…' : t.item) : ['No Data'];
+        const fulfilledData = myTickets.length > 0 ? myTickets.map(t => t.requiredQty - t.remainingQty) : [0];
+        const remainingData = myTickets.length > 0 ? myTickets.map(t => t.remainingQty) : [1];
+        window.ngoBarInst = new Chart(barEl, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [
+              { label: 'Fulfilled', data: fulfilledData, backgroundColor: 'rgba(212,175,55,0.8)', borderRadius: 4, borderSkipped: false },
+              { label: 'Remaining', data: remainingData, backgroundColor: 'rgba(99,102,241,0.4)', borderRadius: 4, borderSkipped: false }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 700 },
+            scales: {
+              x: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#555', font: { size: 10 } } },
+              y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#555', font: { size: 10 } } }
+            },
+            plugins: {
+              legend: { position: 'bottom', labels: { color: '#777', font: { size: 10 }, padding: 12 } }
+            }
+          }
+        });
+      }
     }
 
     function raiseTicket() {
