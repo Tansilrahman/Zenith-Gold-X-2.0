@@ -165,6 +165,34 @@
       color: #D4AF37;
       border-bottom-color: #D4AF37;
     }
+
+    /* Alert glow pulse */
+    @keyframes alertGlow {
+
+      0%,
+      100% {
+        box-shadow: 0 0 12px rgba(234, 179, 8, 0.35);
+      }
+
+      50% {
+        box-shadow: 0 0 26px rgba(234, 179, 8, 0.7);
+      }
+    }
+
+    /* Live dot pulse */
+    @keyframes livePulse {
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.4;
+        transform: scale(0.85);
+      }
+    }
   </style>
 </head>
 
@@ -1288,187 +1316,490 @@
     }
 
     /* =========================
-       ADMIN ENGINE
+       ADMIN ENGINE — COMMAND CENTER
     ========================= */
     function renderAdmin() {
       const db = getDB();
       const totalUsers = db.users.length;
       const totalWaste = db.wasteSubmissions.length;
-      const verifiedWaste = db.wasteSubmissions.filter(s => s.status === "verified").length;
-      const totalDistributed = db.users.reduce((sum, u) => sum + (u.wallet || 0), 0);
+      const verifiedWaste = db.wasteSubmissions.filter(s => s.status === 'verified').length;
+      const pendingWaste = totalWaste - verifiedWaste;
+      const totalDistributed = db.users.reduce((s, u) => s + (u.wallet || 0), 0);
       const reserve = db.reserve || 0;
-      const reserveRatio = (reserve + totalDistributed) > 0 ? ((reserve / (reserve + totalDistributed)) * 100).toFixed(1) : '100.0';
-      const workers = db.users.filter(u => u.role === 'worker');
-      const totalVerifications = db.wasteSubmissions.filter(s => s.status === 'verified').length;
       const totalGardens = db.gardens.length;
+      const totalPlants = db.gardens.reduce((s, g) => s + (g.plants || 0), 0);
+      const totalTrees = db.gardens.reduce((s, g) => s + (g.trees || 0), 0);
       const co2Saved = (verifiedWaste * 0.5).toFixed(1);
-      let reserveStatus = reserveRatio >= 40 ? 'Healthy' : reserveRatio >= 20 ? 'Monitor' : 'Critical';
-      let reserveStatusColor = reserveRatio >= 40 ? 'text-emerald-400' : reserveRatio >= 20 ? 'text-yellow-400' : 'text-red-400';
+      const activeWorkers = db.users.filter(u => u.role === 'worker').length;
+      const ngoFulfilled = db.foodTickets.reduce((s, t) => s + (t.requiredQty - t.remainingQty), 0);
+      const ngoRemaining = db.foodTickets.reduce((s, t) => s + t.remainingQty, 0);
+      const openTickets = db.foodTickets.filter(t => t.status === 'open').length;
+      const reservePct = (reserve + totalDistributed) > 0
+        ? ((reserve / (reserve + totalDistributed)) * 100) : 100;
+      const reserveRatio = reservePct.toFixed(1);
+      const cleanlinessScore = totalWaste > 0
+        ? ((verifiedWaste / totalWaste) * 100) : 0;
+      const cleanPct = Math.round(cleanlinessScore);
+      const cleanColor = cleanPct >= 70 ? '#22c55e' : cleanPct >= 40 ? '#eab308' : '#ef4444';
+      const cleanLabel = cleanPct >= 70 ? 'Excellent' : cleanPct >= 40 ? 'Moderate' : 'Needs Attention';
 
       const pendingWithdrawals = db.withdrawals.filter(w => w.status === 'pending');
       const approvedWithdrawals = db.withdrawals.filter(w => w.status === 'approved');
-      const loginLogs = (db.loginLogs || []).slice().reverse().slice(0, 12);
+      const loginLogs = (db.loginLogs || []).slice().reverse().slice(0, 15);
+
+      // Alerts
+      const largePending = pendingWithdrawals.filter(w => w.amount >= 1000);
+      const staleTickets = db.foodTickets.filter(t =>
+        t.status === 'open' && t.expiry && (Date.now() - (t.expiry - 86400000)) > 86400000
+      );
+
+      // Countup helper (vanilla)
+      function animateCount(el, target, duration = 900) {
+        if (!el) return;
+        const start = Date.now();
+        const tick = () => {
+          const elapsed = Date.now() - start;
+          const progress = Math.min(elapsed / duration, 1);
+          const ease = 1 - Math.pow(1 - progress, 3);
+          el.textContent = Math.round(target * ease).toLocaleString();
+          if (progress < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }
 
       document.getElementById('app').innerHTML = `
-    <div class="min-h-screen">
-      <!-- Sticky Admin Header -->
-      <div class="sticky top-0 z-40 bg-black/85 backdrop-blur-xl border-b border-white/5 px-8 py-4 flex justify-between items-center">
-        <div class="flex items-center gap-4">
-          <img src="logo.png" alt="ZGX" class="w-9 h-9 rounded-lg object-cover" onerror="this.style.display='none'" />
+    <div class="min-h-screen" style="background:#060608">
+
+      <!-- ══ STICKY HEADER ═══════════════════════ -->
+      <div class="sticky top-0 z-40 px-6 py-3.5 flex justify-between items-center"
+           style="background:rgba(4,4,8,0.92);backdrop-filter:blur(24px);border-bottom:1px solid rgba(212,175,55,0.1)">
+        <div class="flex items-center gap-3">
+          <img src="logo.png" alt="ZGX" class="w-10 h-10 rounded-xl object-cover"
+               style="box-shadow:0 0 18px rgba(212,175,55,0.5)" onerror="this.style.display='none'"/>
           <div>
-            <h2 class="text-base gold font-bold uppercase tracking-widest">Admin Control Panel</h2>
-            <p class="text-[9px] text-gray-600 font-mono">${currentUser.email} · SYSTEM ACCESS</p>
+            <div class="font-bold tracking-[0.15em] text-sm" style="color:#D4AF37">ZENITH GOLD X</div>
+            <div class="text-[9px] font-mono tracking-widest" style="color:#252525">CIVIC INTELLIGENCE COMMAND CENTER</div>
           </div>
         </div>
         <div class="flex items-center gap-3">
-          <button onclick="seedDemoData();renderAdmin()" class="text-[10px] uppercase tracking-widest border border-gray-700 text-gray-400 hover:border-yellow-500/40 hover:text-yellow-500 px-3 py-2 rounded-lg transition-all">Seed Demo</button>
-          <button onclick="logout()" class="border border-red-500/40 text-red-400 hover:bg-red-500/10 px-4 py-2 rounded-lg uppercase tracking-widest text-xs transition-all">Logout</button>
+          <div class="hidden md:flex items-center gap-1.5 text-[10px] font-mono" style="color:#333">
+            <span style="width:7px;height:7px;border-radius:50%;background:#22c55e;display:inline-block;animation:livePulse 2s ease-in-out infinite"></span>
+            LIVE
+          </div>
+          <button onclick="seedDemoData();renderAdmin()"
+            class="text-[10px] uppercase tracking-widest px-3 py-2 rounded-lg transition-all"
+            style="border:1px solid #333;color:#555">Seed Demo</button>
+          <button onclick="logout()"
+            class="text-xs uppercase tracking-widest px-4 py-2 rounded-lg transition-all"
+            style="border:1px solid rgba(239,68,68,0.4);color:#f87171">Logout</button>
         </div>
       </div>
 
-      <div class="p-8">
-        <!-- 6-Metric Stats Row -->
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-          <div class="card p-5 rounded-xl border-l-2 border-purple-500 bg-gradient-to-r from-purple-500/5 to-transparent">
-            <div class="text-[9px] text-gray-500 uppercase tracking-[0.2em] mb-1">Total Users</div>
-            <div class="text-3xl gold font-mono font-bold">${totalUsers}</div>
+      <div class="px-6 py-6" style="max-width:1400px;margin:0 auto">
+
+        <!-- ══ SYSTEM ALERTS ══════════════════════ -->
+        ${(largePending.length + staleTickets.length) > 0 ? `
+        <div class="mb-5">
+          <div class="text-[10px] uppercase tracking-[0.2em] font-semibold mb-3" style="color:#D4AF37">⚠ System Alerts</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            ${largePending.map(w => `
+              <div class="rounded-xl p-3 flex items-center gap-3" style="border:1px solid rgba(234,179,8,0.5);background:rgba(234,179,8,0.05);animation:alertGlow 2.5s ease-in-out infinite">
+                <span>⚠️</span>
+                <span class="text-[11px] font-mono" style="color:#fef3c7">Large withdrawal: ${w.amount} ZC pending</span>
+              </div>`).join('')}
+            ${staleTickets.map(t => `
+              <div class="rounded-xl p-3 flex items-center gap-3" style="border:1px solid rgba(234,179,8,0.5);background:rgba(234,179,8,0.05);animation:alertGlow 2.5s ease-in-out infinite">
+                <span>⚠️</span>
+                <span class="text-[11px] font-mono" style="color:#fef3c7">NGO "${t.item}" unfulfilled &gt;24h</span>
+              </div>`).join('')}
           </div>
-          <div class="card p-5 rounded-xl border-l-2 border-yellow-500 bg-gradient-to-r from-yellow-500/5 to-transparent">
-            <div class="text-[9px] text-gray-500 uppercase tracking-[0.2em] mb-1">Total Waste</div>
-            <div class="text-3xl font-mono font-bold text-yellow-400">${totalWaste}</div>
-          </div>
-          <div class="card p-5 rounded-xl border-l-2 border-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent">
-            <div class="text-[9px] text-gray-500 uppercase tracking-[0.2em] mb-1">Verified</div>
-            <div class="text-3xl font-mono font-bold text-emerald-400">${verifiedWaste}</div>
-          </div>
-          <div class="card p-5 rounded-xl border-l-2 border-blue-500 bg-gradient-to-r from-blue-500/5 to-transparent">
-            <div class="text-[9px] text-gray-500 uppercase tracking-[0.2em] mb-1">Food Ledgers</div>
-            <div class="text-3xl font-mono font-bold text-blue-400">${db.foodTickets.length}</div>
-          </div>
-          <div class="card p-5 rounded-xl border-l-2 border-cyan-500 bg-gradient-to-r from-cyan-500/5 to-transparent">
-            <div class="text-[9px] text-gray-500 uppercase tracking-[0.2em] mb-1">CO₂ Saved kg</div>
-            <div class="text-3xl font-mono font-bold text-cyan-400">${co2Saved}</div>
-          </div>
-          <div class="card p-5 rounded-xl border-l-2 border-${reserveRatio >= 40 ? 'emerald' : reserveRatio >= 20 ? 'yellow' : 'red'}-500">
-            <div class="text-[9px] text-gray-500 uppercase tracking-[0.2em] mb-1">Reserve Ratio</div>
-            <div class="text-2xl font-mono font-bold ${reserveStatusColor}">${reserveRatio}%</div>
-            <div class="text-[9px] font-mono ${reserveStatusColor} opacity-70">${reserveStatus}</div>
-          </div>
+        </div>` : ''}
+
+        <!-- ══ 6-METRIC STRIP ═════════════════════ -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+          ${[
+          { id: 'm-users', label: 'Total Users', val: totalUsers, icon: '👥', color: '#a78bfa', border: 'rgba(167,139,250,0.4)' },
+          { id: 'm-workers', label: 'Active Workers', val: activeWorkers, icon: '⚙️', color: '#60a5fa', border: 'rgba(96,165,250,0.4)' },
+          { id: 'm-with', label: 'Pending Withdraw', val: pendingWithdrawals.length, icon: '⏳', color: '#f87171', border: 'rgba(248,113,113,0.4)' },
+          { id: 'm-co2', label: 'CO₂ Saved kg', val: parseFloat(co2Saved), icon: '🌿', color: '#34d399', border: 'rgba(52,211,153,0.4)' },
+          { id: 'm-trees', label: 'Trees & Plants', val: totalTrees + totalPlants, icon: '🌳', color: '#22d3ee', border: 'rgba(34,211,238,0.4)' },
+          { id: 'm-ledgers', label: 'Food Ledgers', val: db.foodTickets.length, icon: '🤝', color: '#D4AF37', border: 'rgba(212,175,55,0.4)' },
+        ].map(m => `
+          <div class="rounded-2xl p-4" style="background:rgba(12,12,18,0.8);border:1px solid ${m.border};backdrop-filter:blur(16px)">
+            <div class="text-2xl mb-1.5">${m.icon}</div>
+            <div class="text-[9px] uppercase tracking-[0.18em] mb-1" style="color:#444">${m.label}</div>
+            <div id="${m.id}" class="text-2xl font-mono font-bold" style="color:${m.color}">0</div>
+          </div>`).join('')}
         </div>
 
-        <!-- Charts Row -->
-        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
-          <div class="card p-5 rounded-xl border border-white/5">
-            <h4 class="text-[10px] gold uppercase tracking-widest mb-3 text-center">Worker Activity</h4>
-            <div style="height:180px;"><canvas id="workerActivityChart"></canvas></div>
-          </div>
-          <div class="card p-5 rounded-xl border border-white/5">
-            <h4 class="text-[10px] gold uppercase tracking-widest mb-3 text-center">Garden Adoption</h4>
-            <div style="height:180px;"><canvas id="gardenChart"></canvas></div>
-          </div>
-          <div class="card p-5 rounded-xl border border-white/5">
-            <h4 class="text-[10px] gold uppercase tracking-widest mb-3 text-center">CO₂ Growth</h4>
-            <div style="height:180px;"><canvas id="co2Chart"></canvas></div>
-          </div>
-          <div class="card p-5 rounded-xl border border-white/5">
-            <h4 class="text-[10px] gold uppercase tracking-widest mb-3 text-center">NGO Fulfillment</h4>
-            <div style="height:180px;"><canvas id="ngoChart"></canvas></div>
-          </div>
-          <div class="card p-5 rounded-xl border border-white/5 lg:col-span-2">
-            <h4 class="text-[10px] gold uppercase tracking-widest mb-3 text-center">Reserve Health</h4>
-            <div style="height:180px;"><canvas id="reserveGauge"></canvas></div>
-          </div>
-        </div>
+        <!-- ══ MAIN GRID: CHARTS 3-COL ════════════ -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
 
-        <!-- Bottom Grid: Withdrawals + Login Log + Users -->
-        <div class="grid lg:grid-cols-3 gap-6 mb-8">
-          <!-- Withdrawals -->
-          <div class="card p-6 rounded-xl border border-white/5">
-            <h3 class="gold mb-4 uppercase font-bold tracking-widest text-sm border-b border-white/5 pb-3">Pending Withdrawals</h3>
-            <div class="space-y-3 max-h-64 overflow-y-auto custom-scrollbar">
-              ${pendingWithdrawals.length === 0
-          ? '<p class="text-gray-600 text-xs italic text-center py-4">No pending requests.</p>'
-          : pendingWithdrawals.map(w => {
-            const userName = db.users.find(u => u.id === w.userId)?.email || 'Unknown';
-            return `
-                    <div class="p-3 rounded-lg border border-yellow-500/20 bg-yellow-500/5 flex justify-between items-center gap-3">
-                      <div class="min-w-0">
-                        <div class="text-yellow-400 text-xs font-mono font-bold truncate">${userName.split('@')[0]}</div>
-                        <div class="text-gray-500 text-[10px] font-mono">${w.amount} ZC · ID ${w.id}</div>
-                      </div>
-                      <button onclick="approveWithdrawal(${w.id})" class="gold-btn px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest flex-shrink-0">Approve</button>
-                    </div>`;
-          }).join('')
-        }
+          <!-- Chart 1: Worker Activity (Line) -->
+          <div class="rounded-2xl p-5" style="background:rgba(10,10,16,0.8);border:1px solid rgba(212,175,55,0.12);backdrop-filter:blur(20px)">
+            <div class="flex items-center gap-2 mb-3">
+              <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block"></span>
+              <span class="text-[11px] uppercase tracking-[0.18em] font-semibold" style="color:#D4AF37">Worker Activity</span>
             </div>
-            ${approvedWithdrawals.length > 0 ? `<div class="mt-3 pt-3 border-t border-white/5"><p class="text-[9px] text-gray-600 font-mono">${approvedWithdrawals.length} approved · ${db.reserve} ZC reserve</p></div>` : ''}
+            <div style="height:200px"><canvas id="adminWkrChart"></canvas></div>
           </div>
 
-          <!-- Login Audit Log -->
-          <div class="card p-6 rounded-xl border border-white/5">
-            <h3 class="gold mb-4 uppercase font-bold tracking-widest text-sm border-b border-white/5 pb-3">Login Audit</h3>
-            <div class="space-y-1.5 max-h-64 overflow-y-auto custom-scrollbar">
+          <!-- Chart 2: Garden Adoption (Bar) -->
+          <div class="rounded-2xl p-5" style="background:rgba(10,10,16,0.8);border:1px solid rgba(212,175,55,0.12);backdrop-filter:blur(20px)">
+            <div class="flex items-center gap-2 mb-3">
+              <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block"></span>
+              <span class="text-[11px] uppercase tracking-[0.18em] font-semibold" style="color:#D4AF37">Garden Adoption</span>
+            </div>
+            <div style="height:200px"><canvas id="adminGardenChart"></canvas></div>
+          </div>
+
+          <!-- Chart 3: CO₂ Reduction (Area) -->
+          <div class="rounded-2xl p-5" style="background:rgba(10,10,16,0.8);border:1px solid rgba(212,175,55,0.12);backdrop-filter:blur(20px)">
+            <div class="flex items-center gap-2 mb-3">
+              <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block"></span>
+              <span class="text-[11px] uppercase tracking-[0.18em] font-semibold" style="color:#D4AF37">CO₂ Reduction</span>
+            </div>
+            <div style="height:200px"><canvas id="adminCo2Chart"></canvas></div>
+          </div>
+
+          <!-- Chart 4: NGO Fulfillment (Doughnut) -->
+          <div class="rounded-2xl p-5" style="background:rgba(10,10,16,0.8);border:1px solid rgba(212,175,55,0.12);backdrop-filter:blur(20px)">
+            <div class="flex items-center gap-2 mb-3">
+              <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block"></span>
+              <span class="text-[11px] uppercase tracking-[0.18em] font-semibold" style="color:#D4AF37">NGO Fulfillment</span>
+            </div>
+            <div style="height:200px"><canvas id="adminNgoChart"></canvas></div>
+          </div>
+
+          <!-- Chart 5: Reserve Health (Multi-line, spans 2) -->
+          <div class="rounded-2xl p-5 md:col-span-1 lg:col-span-2" style="background:rgba(10,10,16,0.8);border:1px solid rgba(212,175,55,0.12);backdrop-filter:blur(20px)">
+            <div class="flex items-center gap-2 mb-3">
+              <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block"></span>
+              <span class="text-[11px] uppercase tracking-[0.18em] font-semibold" style="color:#D4AF37">Reserve Health</span>
+            </div>
+            <div style="height:200px"><canvas id="adminReserveChart"></canvas></div>
+          </div>
+        </div>
+
+        <!-- ══ BOTTOM ROW: GAUGE + FEED + PANELS ══ -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
+
+          <!-- Cleanliness Gauge -->
+          <div class="rounded-2xl p-5 flex flex-col items-center" style="background:rgba(10,10,16,0.8);border:1px solid rgba(212,175,55,0.12);backdrop-filter:blur(20px)">
+            <div class="text-[11px] uppercase tracking-[0.18em] font-semibold mb-1" style="color:#D4AF37">Madurai Civic Cleanliness Score</div>
+            <div class="text-[9px] font-mono mb-4" style="color:#333">Waste Collected ÷ Waste Reported</div>
+            <div class="relative" style="width:180px;height:180px">
+              <svg width="180" height="180" style="transform:rotate(-90deg)" viewBox="0 0 180 180">
+                <circle cx="90" cy="90" r="72" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="14"/>
+                <circle id="gaugeArc" cx="90" cy="90" r="72" fill="none"
+                  stroke="${cleanColor}" stroke-width="14" stroke-linecap="round"
+                  stroke-dasharray="452.4" stroke-dashoffset="452.4"
+                  style="transition:stroke-dashoffset 1.4s cubic-bezier(0.4,0,0.2,1);filter:drop-shadow(0 0 10px ${cleanColor}88)"/>
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center">
+                <span id="gaugeVal" class="text-4xl font-mono font-bold" style="color:${cleanColor}">0%</span>
+                <span class="text-[10px] font-mono uppercase tracking-widest mt-1" style="color:${cleanColor}">${cleanLabel}</span>
+              </div>
+            </div>
+            <div class="flex gap-4 mt-4 text-[9px] font-mono" style="color:#555">
+              <span><span style="color:#ef4444">●</span> 0–40 Low</span>
+              <span><span style="color:#eab308">●</span> 40–70 Mod</span>
+              <span><span style="color:#22c55e">●</span> 70+ High</span>
+            </div>
+          </div>
+
+          <!-- Live Activity Feed -->
+          <div class="rounded-2xl p-5 flex flex-col" style="background:rgba(10,10,16,0.8);border:1px solid rgba(212,175,55,0.12);backdrop-filter:blur(20px);min-height:340px">
+            <div class="flex items-center gap-2 mb-3">
+              <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block"></span>
+              <span class="text-[11px] uppercase tracking-[0.18em] font-semibold" style="color:#D4AF37">Live Activity Feed</span>
+            </div>
+            <div class="flex-1 overflow-y-auto custom-scrollbar space-y-2" style="max-height:280px">
               ${loginLogs.length === 0
-          ? '<p class="text-gray-600 text-xs italic text-center py-4">No logins recorded yet.</p>'
-          : loginLogs.map(log => {
+          ? '<div class="text-[11px] text-center py-8" style="color:#1f1f1f">No activity yet</div>'
+          : loginLogs.map((log, i) => {
             const d = new Date(log.time);
-            const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-            const dateStr = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-            const roleColor = log.role === 'admin' ? 'text-yellow-400' : log.role === 'worker' ? 'text-emerald-400' : log.role === 'ngo' ? 'text-purple-400' : 'text-blue-400';
+            const icons = { admin: '🔑', worker: '⚙️', citizen: '👤', ngo: '🤝' };
+            const roleColor = log.role === 'admin' ? '#D4AF37' : log.role === 'worker' ? '#34d399' : log.role === 'ngo' ? '#a78bfa' : '#60a5fa';
             return `
-                    <div class="flex justify-between items-center py-1.5 border-b border-white/3 last:border-0">
-                      <div class="flex items-center gap-2">
-                        <span class="text-[9px] font-mono ${roleColor} uppercase">${log.role}</span>
-                        <span class="text-[10px] font-mono text-gray-400">${log.email.split('@')[0]}</span>
+                    <div class="flex items-start gap-3 p-2.5 rounded-xl"
+                         style="background:rgba(255,255,255,0.025);border-left:2px solid rgba(212,175,55,0.15)">
+                      <span class="text-base mt-0.5 flex-shrink-0">${icons[log.role] || '📌'}</span>
+                      <div class="min-w-0 flex-1">
+                        <div class="text-[11px] font-mono" style="color:#bbb">${log.email.split('@')[0]} logged in</div>
+                        <div class="text-[9px] font-mono uppercase" style="color:${roleColor}">${log.role}</div>
                       </div>
-                      <span class="text-[9px] text-gray-600 font-mono">${dateStr} ${timeStr}</span>
+                      <div class="text-[9px] font-mono flex-shrink-0" style="color:#333">
+                        ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
                     </div>`;
           }).join('')
         }
             </div>
           </div>
 
-          <!-- User Table -->
-          <div class="card p-6 rounded-xl border border-white/5">
-            <h3 class="gold mb-4 uppercase font-bold tracking-widest text-sm border-b border-white/5 pb-3">All Users</h3>
-            <div class="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
-              ${db.users.map(u => {
-          const roleColor = u.role === 'admin' ? 'text-yellow-400 border-yellow-500/30' : u.role === 'worker' ? 'text-emerald-400 border-emerald-500/30' : u.role === 'ngo' ? 'text-purple-400 border-purple-500/30' : 'text-blue-400 border-blue-500/30';
+          <!-- Withdrawals + User Panel -->
+          <div class="rounded-2xl p-5 flex flex-col gap-4" style="background:rgba(10,10,16,0.8);border:1px solid rgba(212,175,55,0.12);backdrop-filter:blur(20px)">
+            <div>
+              <h3 class="text-[11px] uppercase tracking-[0.18em] font-semibold mb-3 pb-2" style="color:#D4AF37;border-bottom:1px solid rgba(255,255,255,0.05)">Pending Withdrawals</h3>
+              <div class="space-y-2 max-h-36 overflow-y-auto custom-scrollbar">
+                ${pendingWithdrawals.length === 0
+          ? '<p class="text-[11px] italic text-center py-2" style="color:#1f1f1f">No pending requests</p>'
+          : pendingWithdrawals.map(w => {
+            const nm = db.users.find(u => u.id === w.userId)?.email?.split('@')[0] || 'unknown';
+            return `
+                      <div class="flex justify-between items-center p-2.5 rounded-lg" style="background:rgba(212,175,55,0.05);border:1px solid rgba(212,175,55,0.2)">
+                        <div>
+                          <div class="text-xs font-mono font-bold" style="color:#D4AF37">${nm}</div>
+                          <div class="text-[10px] font-mono" style="color:#555">${w.amount} ZC</div>
+                        </div>
+                        <button onclick="approveWithdrawal(${w.id})" class="gold-btn px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest">Approve</button>
+                      </div>`;
+          }).join('')
+        }
+              </div>
+            </div>
+            <div class="flex-1">
+              <h3 class="text-[11px] uppercase tracking-[0.18em] font-semibold mb-3 pb-2" style="color:#D4AF37;border-bottom:1px solid rgba(255,255,255,0.05)">Users</h3>
+              <div class="space-y-1.5 max-h-36 overflow-y-auto custom-scrollbar">
+                ${db.users.map(u => {
+          const c = u.role === 'admin' ? '#D4AF37' : u.role === 'worker' ? '#34d399' : u.role === 'ngo' ? '#a78bfa' : '#60a5fa';
           return `
-                <div class="flex justify-between items-center py-2 border-b border-white/3 last:border-0">
-                  <div>
-                    <div class="text-xs font-mono text-gray-300">${u.email.split('@')[0]}</div>
-                    <span class="text-[9px] font-mono ${roleColor} border rounded px-1.5 py-0.5">${u.role}</span>
-                  </div>
-                  <div class="text-right">
-                    <div class="text-xs font-mono text-yellow-400">${u.wallet || 0} ZC</div>
-                    ${u.role === 'worker' ? `<div class="text-[9px] text-gray-600 font-mono">${u.dailyCount || 0} today</div>` : ''}
-                  </div>
-                </div>`;
+                    <div class="flex justify-between items-center py-1.5" style="border-bottom:1px solid rgba(255,255,255,0.03)">
+                      <div class="flex items-center gap-2">
+                        <span class="text-[9px] font-mono uppercase" style="color:${c}">${u.role}</span>
+                        <span class="text-[11px] font-mono" style="color:#888">${u.email.split('@')[0]}</span>
+                      </div>
+                      <span class="text-[11px] font-mono" style="color:#D4AF37">${u.wallet || 0} ZC</span>
+                    </div>`;
         }).join('')}
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Reserve Info bar -->
-        <div class="card p-5 rounded-xl border border-white/5 flex items-center justify-between">
-          <div class="flex items-center gap-6">
-            <div><p class="text-[9px] text-gray-500 uppercase tracking-widest">System Reserve</p><p class="text-xl font-mono font-bold text-yellow-400">${db.reserve.toLocaleString()} ZC</p></div>
-            <div><p class="text-[9px] text-gray-500 uppercase tracking-widest">Distributed</p><p class="text-xl font-mono font-bold text-gray-300">${totalDistributed.toLocaleString()} ZC</p></div>
-            <div><p class="text-[9px] text-gray-500 uppercase tracking-widest">Total Gardens</p><p class="text-xl font-mono font-bold text-emerald-400">${totalGardens}</p></div>
+        <!-- ══ RESERVE BAR ════════════════════════ -->
+        <div class="rounded-2xl p-5 flex items-center justify-between"
+             style="background:rgba(10,10,16,0.8);border:1px solid rgba(212,175,55,0.12);backdrop-filter:blur(20px)">
+          <div class="flex items-center gap-8">
+            <div>
+              <p class="text-[9px] uppercase tracking-[0.2em]" style="color:#333">System Reserve</p>
+              <p class="text-xl font-mono font-bold" style="color:#D4AF37">${reserve.toLocaleString()} ZC</p>
+            </div>
+            <div>
+              <p class="text-[9px] uppercase tracking-[0.2em]" style="color:#333">Distributed</p>
+              <p class="text-xl font-mono font-bold" style="color:#e2e2e2">${totalDistributed.toLocaleString()} ZC</p>
+            </div>
+            <div>
+              <p class="text-[9px] uppercase tracking-[0.2em]" style="color:#333">Gardens</p>
+              <p class="text-xl font-mono font-bold" style="color:#34d399">${totalGardens}</p>
+            </div>
           </div>
           <div class="text-right">
-            <div class="w-48 bg-black/50 border border-white/5 rounded-full h-3 overflow-hidden">
-              <div class="bg-gradient-to-r from-yellow-700 to-yellow-400 h-full rounded-full" style="width:${Math.min(reserveRatio, 100)}%"></div>
+            <div class="overflow-hidden rounded-full" style="width:200px;height:10px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.05)">
+              <div class="h-full rounded-full" style="width:${Math.min(reservePct, 100)}%;background:linear-gradient(90deg,#B89222,#D4AF37)"></div>
             </div>
-            <p class="text-[9px] text-gray-600 font-mono mt-1">Reserve Health: ${reserveRatio}%</p>
+            <p class="text-[9px] font-mono mt-1" style="color:#333">Reserve Health: ${reserveRatio}%</p>
           </div>
         </div>
+
       </div>
     </div>
   `;
 
-      initAdminAnalytics();
+      // ── Run after DOM is ready ──────────────────
+      setTimeout(() => {
+
+        // Animate metric counters
+        const metricTargets = {
+          'm-users': totalUsers,
+          'm-workers': activeWorkers,
+          'm-with': pendingWithdrawals.length,
+          'm-co2': parseFloat(co2Saved),
+          'm-trees': totalTrees + totalPlants,
+          'm-ledgers': db.foodTickets.length
+        };
+        Object.entries(metricTargets).forEach(([id, val]) => {
+          animateCount(document.getElementById(id), val);
+        });
+
+        // Animate circular gauge
+        const arc = document.getElementById('gaugeArc');
+        const valEl = document.getElementById('gaugeVal');
+        if (arc) {
+          const circ = 452.4;
+          arc.style.strokeDashoffset = circ - (cleanPct / 100) * circ;
+          if (valEl) {
+            let prev = 0;
+            const step = () => {
+              if (prev < cleanPct) {
+                prev = Math.min(prev + 2, cleanPct);
+                valEl.textContent = prev + '%';
+                requestAnimationFrame(step);
+              }
+            };
+            requestAnimationFrame(step);
+          }
+        }
+
+        // Render all charts
+        // initAdminAnalytics(); // This call is removed as its logic is now inline or superseded.
+
+        // ── ADMIN CHART ENGINE ────────────────────
+        seedDemoData();
+        // const db  = getDB(); // db is already available from renderAdmin scope
+        Chart.defaults.color = '#555';
+        Chart.defaults.font.family = "'Inter', sans-serif";
+
+        // const verifiedWaste = db.wasteSubmissions.filter(s => s.status === 'verified').length; // Already defined
+        // const pending       = db.wasteSubmissions.filter(s => s.status === 'pending').length; // Already defined
+        // const activeWorkers = db.users.filter(u => u.role === 'worker').length; // Already defined
+        // const totalUsers    = db.users.length; // Already defined
+        // const totalGardens  = db.gardens.length; // Already defined
+        // const totalPlants   = db.gardens.reduce((s, g) => s + (g.plants || 0), 0); // Already defined
+        // const totalTrees    = db.gardens.reduce((s, g) => s + (g.trees  || 0), 0); // Already defined
+        // const co2Saved      = verifiedWaste * 0.5; // Already defined
+        // const distributed   = db.users.reduce((s, u) => s + (u.wallet || 0), 0); // Already defined
+        // const reserve       = db.reserve || 0; // Already defined
+        // const ngoFulfilled  = db.foodTickets.reduce((s, t) => s + (t.requiredQty - t.remainingQty), 0); // Already defined
+        // const ngoRemaining  = db.foodTickets.reduce((s, t) => s + t.remainingQty, 0); // Already defined
+
+        // Shared chart options
+        const baseOpts = {
+          responsive: true, maintainAspectRatio: false,
+          animation: { duration: 900 },
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#444', font: { size: 10 } } },
+            y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#444', font: { size: 10 } }, beginAtZero: true }
+          }
+        };
+        const noScaleOpts = { responsive: true, maintainAspectRatio: false, animation: { duration: 900 } };
+
+        // Destroy old instances
+        ['adminWkrInst', 'adminGardenInst', 'adminCo2Inst', 'adminNgoInst', 'adminReserveInst']
+          .forEach(k => { if (window[k]) { try { window[k].destroy(); } catch (e) { } window[k] = null; } });
+
+        // ─ Chart 1: Worker Activity (Line) ───────
+        const wkrEl = document.getElementById('adminWkrChart');
+        if (wkrEl) {
+          window.adminWkrInst = new Chart(wkrEl, {
+            type: 'line',
+            data: {
+              labels: ['Pending', 'Verified', 'Workers', 'Total Users'],
+              datasets: [{
+                data: [pendingWaste, verifiedWaste, activeWorkers, totalUsers],
+                borderColor: '#D4AF37',
+                backgroundColor: 'rgba(212,175,55,0.1)',
+                fill: true, tension: 0.4, pointRadius: 4,
+                pointBackgroundColor: '#FFDF73', borderWidth: 2
+              }]
+            },
+            options: { ...baseOpts, plugins: { legend: { display: false } } }
+          });
+        }
+
+        // ─ Chart 2: Garden Adoption (Bar) ────────
+        const gardenEl = document.getElementById('adminGardenChart');
+        if (gardenEl) {
+          window.adminGardenInst = new Chart(gardenEl, {
+            type: 'bar',
+            data: {
+              labels: ['Gardens', 'Plants', 'Trees'],
+              datasets: [{
+                data: [totalGardens, totalPlants, totalTrees],
+                backgroundColor: ['rgba(52,211,153,0.25)', 'rgba(52,211,153,0.5)', 'rgba(52,211,153,0.8)'],
+                borderColor: '#34d399', borderWidth: 1,
+                borderRadius: 6, maxBarThickness: 48
+              }]
+            },
+            options: { ...baseOpts, plugins: { legend: { display: false } } }
+          });
+        }
+
+        // ─ Chart 3: CO₂ (Area) ───────────────────
+        const co2El = document.getElementById('adminCo2Chart');
+        if (co2El) {
+          window.adminCo2Inst = new Chart(co2El, {
+            type: 'line',
+            data: {
+              labels: ['0%', '25%', '50%', '75%', '100%'],
+              datasets: [{
+                data: [0, parseFloat(co2Saved) * 0.25, parseFloat(co2Saved) * 0.5, parseFloat(co2Saved) * 0.75, parseFloat(co2Saved)],
+                borderColor: '#22d3ee',
+                backgroundColor: (ctx) => {
+                  const grad = ctx.chart.ctx.createLinearGradient(0, 0, 0, 180);
+                  grad.addColorStop(0, 'rgba(34,211,238,0.3)');
+                  grad.addColorStop(1, 'rgba(34,211,238,0)');
+                  return grad;
+                },
+                fill: true, tension: 0.5, borderWidth: 2, pointRadius: 0
+              }]
+            },
+            options: { ...baseOpts, plugins: { legend: { display: false } } }
+          });
+        }
+
+        // ─ Chart 4: NGO Doughnut ─────────────────
+        const ngoEl = document.getElementById('adminNgoChart');
+        if (ngoEl) {
+          window.adminNgoInst = new Chart(ngoEl, {
+            type: 'doughnut',
+            data: {
+              labels: ['Fulfilled', 'Remaining', 'Open Tickets'],
+              datasets: [{
+                data: [ngoFulfilled || 0, ngoRemaining || 0, openTickets],
+                backgroundColor: ['#D4AF37', '#1e1e2a', '#4f46e5'],
+                borderColor: ['#B89222', '#333', '#3730a3'],
+                borderWidth: 1, hoverOffset: 6
+              }]
+            },
+            options: {
+              ...noScaleOpts,
+              cutout: '62%',
+              plugins: {
+                legend: { position: 'bottom', labels: { color: '#555', font: { size: 10 }, padding: 10, boxWidth: 10 } }
+              }
+            }
+          });
+        }
+
+        // ─ Chart 5: Reserve Health (Multi-line) ──
+        const reserveEl = document.getElementById('adminReserveChart');
+        if (reserveEl) {
+          window.adminReserveInst = new Chart(reserveEl, {
+            type: 'line',
+            data: {
+              labels: ['Start', 'Distributed', 'Reserve'],
+              datasets: [
+                {
+                  label: 'Reserve',
+                  data: [reserve + totalDistributed, reserve + totalDistributed, reserve],
+                  borderColor: '#D4AF37',
+                  backgroundColor: 'rgba(212,175,55,0.1)',
+                  fill: true, tension: 0.4, pointRadius: 4,
+                  pointBackgroundColor: '#FFDF73', borderWidth: 2
+                },
+                {
+                  label: 'Distributed',
+                  data: [0, totalDistributed, totalDistributed],
+                  borderColor: '#60a5fa',
+                  backgroundColor: 'rgba(96,165,250,0.1)',
+                  fill: true, tension: 0.4, pointRadius: 4,
+                  pointBackgroundColor: '#93c5fd', borderWidth: 2
+                }
+              ]
+            },
+            options: {
+              ...baseOpts,
+              plugins: {
+                legend: { position: 'bottom', labels: { color: '#555', font: { size: 10 }, padding: 10, boxWidth: 10 } }
+              }
+            }
+          });
+        }
+
+      }, 80);
     }
 
     function approveWithdrawal(id) {
@@ -1547,162 +1878,163 @@
     }
 
     /* =========================
-       ANALYTICS ENGINE
-    ========================= */
-
-    function computeAnalytics() {
-
-      const db = getDB();
-
-      const verified = db.wasteSubmissions.filter(s => s.status === "verified").length;
-
-      const workers = db.users.filter(u => u.role === "worker").length;
-
-      const gardens = db.gardens.length;
-
-      const co2 = verified * 0.5;
-
-      const ngoRequested = db.foodTickets.reduce((a, b) => a + b.requiredQty, 0);
-
-      const ngoFulfilled = db.foodTickets.reduce((a, b) => a + (b.requiredQty - b.remainingQty), 0);
-
-      const distributed = db.users.reduce((a, b) => a + (b.wallet || 0), 0);
-
-      const reserveRatio = (db.reserve / (db.reserve + distributed)) * 100;
-
-      return {
-
-        workers,
-        verified,
-        gardens,
-        co2,
-        ngoRequested,
-        ngoFulfilled,
-        reserveRatio
-
-      };
-
-    }
-
-    /* =========================
-       CHART RENDERER
-    ========================= */
-
-    function renderAdminCharts() {
-      if (window.workerActivityChart) window.workerActivityChart.destroy();
-      if (window.gardenChart) window.gardenChart.destroy();
-      if (window.co2Chart) window.co2Chart.destroy();
-      if (window.ngoChart) window.ngoChart.destroy();
-      if (window.reserveGauge) window.reserveGauge.destroy();
-
-      const data = computeAnalytics();
-
-      Chart.defaults.color = "#aaa";
-
-      /* Worker Activity */
-
-      window.workerActivityChart = new Chart(
-        document.getElementById("workerActivityChart"),
-        {
-          type: "bar",
-          data: {
-            labels: ["Workers", "Verified"],
-            datasets: [{
-              data: [data.workers, data.verified],
-              backgroundColor: ["#888", "#D4AF37"]
-            }]
-          },
-          options: { plugins: { legend: { display: false } } }
-        }
-      );
-
-      /* Garden Adoption */
-
-      window.gardenChart = new Chart(
-        document.getElementById("gardenChart"),
-        {
-          type: "line",
-          data: {
-            labels: ["Stage1", "Stage2", "Stage3"],
-            datasets: [{
-              data: [data.gardens / 3, data.gardens / 2, data.gardens],
-              borderColor: "#00ff9c",
-              tension: 0.4
-            }]
-          },
-          options: { plugins: { legend: { display: false } } }
-        }
-      );
-
-      /* CO2 */
-
-      window.co2Chart = new Chart(
-        document.getElementById("co2Chart"),
-        {
-          type: "bar",
-          data: {
-            labels: ["CO2 Saved"],
-            datasets: [{
-              data: [data.co2],
-              backgroundColor: "#00e5ff"
-            }]
-          },
-          options: { plugins: { legend: { display: false } } }
-        }
-      );
-
-      /* NGO */
-
-      window.ngoChart = new Chart(
-        document.getElementById("ngoChart"),
-        {
-          type: "doughnut",
-          data: {
-            labels: ["Fulfilled", "Remaining"],
-            datasets: [{
-              data: [
-                data.ngoFulfilled,
-                data.ngoRequested - data.ngoFulfilled
-              ],
-              backgroundColor: ["#4caf50", "#444"]
-            }]
-          }
-        }
-      );
-
-      /* Reserve Health */
-
-      window.reserveGauge = new Chart(
-        document.getElementById("reserveGauge"),
-        {
-          type: "doughnut",
-          data: {
-            labels: ["Reserve", "Distributed"],
-            datasets: [{
-              data: [
-                data.reserveRatio,
-                100 - data.reserveRatio
-              ],
-              backgroundColor: ["#D4AF37", "#222"]
-            }]
-          }
-        }
-      );
-
-    }
-
-    /* =========================
-       AUTO INITIALIZE
+       ADMIN CHART ENGINE
     ========================= */
 
     function initAdminAnalytics() {
-
       seedDemoData();
+      const db = getDB();
+      Chart.defaults.color = '#555';
+      Chart.defaults.font.family = "'Inter', sans-serif";
 
-      setTimeout(() => {
-        renderAdminCharts();
-      }, 300);
+      const verifiedWaste = db.wasteSubmissions.filter(s => s.status === 'verified').length;
+      const pending = db.wasteSubmissions.filter(s => s.status === 'pending').length;
+      const activeWorkers = db.users.filter(u => u.role === 'worker').length;
+      const totalUsers = db.users.length;
+      const totalGardens = db.gardens.length;
+      const totalPlants = db.gardens.reduce((s, g) => s + (g.plants || 0), 0);
+      const totalTrees = db.gardens.reduce((s, g) => s + (g.trees || 0), 0);
+      const co2Saved = verifiedWaste * 0.5;
+      const distributed = db.users.reduce((s, u) => s + (u.wallet || 0), 0);
+      const reserve = db.reserve || 0;
+      const ngoFulfilled = db.foodTickets.reduce((s, t) => s + (t.requiredQty - t.remainingQty), 0);
+      const ngoRemaining = db.foodTickets.reduce((s, t) => s + t.remainingQty, 0);
 
+      // Shared chart options
+      const baseOpts = {
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration: 900 },
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#444', font: { size: 10 } } },
+          y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#444', font: { size: 10 } }, beginAtZero: true }
+        }
+      };
+      const noScaleOpts = { responsive: true, maintainAspectRatio: false, animation: { duration: 900 } };
+
+      // Destroy old instances
+      ['adminWkrInst', 'adminGardenInst', 'adminCo2Inst', 'adminNgoInst', 'adminReserveInst']
+        .forEach(k => { if (window[k]) { try { window[k].destroy(); } catch (e) { } window[k] = null; } });
+
+      // ─ Chart 1: Worker Activity (Line) ───────
+      const wkrEl = document.getElementById('adminWkrChart');
+      if (wkrEl) {
+        window.adminWkrInst = new Chart(wkrEl, {
+          type: 'line',
+          data: {
+            labels: ['Pending', 'Verified', 'Workers', 'Total Users'],
+            datasets: [{
+              data: [pending, verifiedWaste, activeWorkers, totalUsers],
+              borderColor: '#D4AF37',
+              backgroundColor: 'rgba(212,175,55,0.1)',
+              fill: true, tension: 0.4, pointRadius: 4,
+              pointBackgroundColor: '#FFDF73', borderWidth: 2
+            }]
+          },
+          options: { ...baseOpts, plugins: { legend: { display: false } } }
+        });
+      }
+
+      // ─ Chart 2: Garden Adoption (Bar) ────────
+      const gardenEl = document.getElementById('adminGardenChart');
+      if (gardenEl) {
+        window.adminGardenInst = new Chart(gardenEl, {
+          type: 'bar',
+          data: {
+            labels: ['Gardens', 'Plants', 'Trees'],
+            datasets: [{
+              data: [totalGardens, totalPlants, totalTrees],
+              backgroundColor: ['rgba(52,211,153,0.25)', 'rgba(52,211,153,0.5)', 'rgba(52,211,153,0.8)'],
+              borderColor: '#34d399', borderWidth: 1,
+              borderRadius: 6, maxBarThickness: 48
+            }]
+          },
+          options: { ...baseOpts, plugins: { legend: { display: false } } }
+        });
+      }
+
+      // ─ Chart 3: CO₂ (Area) ───────────────────
+      const co2El = document.getElementById('adminCo2Chart');
+      if (co2El) {
+        window.adminCo2Inst = new Chart(co2El, {
+          type: 'line',
+          data: {
+            labels: ['0%', '25%', '50%', '75%', '100%'],
+            datasets: [{
+              data: [0, co2Saved * 0.25, co2Saved * 0.5, co2Saved * 0.75, co2Saved],
+              borderColor: '#22d3ee',
+              backgroundColor: (ctx) => {
+                const grad = ctx.chart.ctx.createLinearGradient(0, 0, 0, 180);
+                grad.addColorStop(0, 'rgba(34,211,238,0.3)');
+                grad.addColorStop(1, 'rgba(34,211,238,0)');
+                return grad;
+              },
+              fill: true, tension: 0.5, borderWidth: 2, pointRadius: 0
+            }]
+          },
+          options: { ...baseOpts, plugins: { legend: { display: false } } }
+        });
+      }
+
+      // ─ Chart 4: NGO Doughnut ─────────────────
+      const ngoEl = document.getElementById('adminNgoChart');
+      if (ngoEl) {
+        window.adminNgoInst = new Chart(ngoEl, {
+          type: 'doughnut',
+          data: {
+            labels: ['Fulfilled', 'Remaining', 'Open Tickets'],
+            datasets: [{
+              data: [ngoFulfilled || 0, ngoRemaining || 0, db.foodTickets.filter(t => t.status === 'open').length],
+              backgroundColor: ['#D4AF37', '#1e1e2a', '#4f46e5'],
+              borderColor: ['#B89222', '#333', '#3730a3'],
+              borderWidth: 1, hoverOffset: 6
+            }]
+          },
+          options: {
+            ...noScaleOpts,
+            cutout: '62%',
+            plugins: {
+              legend: { position: 'bottom', labels: { color: '#555', font: { size: 10 }, padding: 10, boxWidth: 10 } }
+            }
+          }
+        });
+      }
+
+      // ─ Chart 5: Reserve Health (Multi-line) ──
+      const resEl = document.getElementById('adminReserveChart');
+      if (resEl) {
+        const stages = ['Start', 'Q1', 'Q2', 'Q3', 'Now'];
+        window.adminReserveInst = new Chart(resEl, {
+          type: 'line',
+          data: {
+            labels: stages,
+            datasets: [
+              {
+                label: 'Minted ZC', borderColor: '#D4AF37',
+                data: [50000, 50000, 50000, 50000, 50000],
+                tension: 0, borderWidth: 2, pointRadius: 3, fill: false
+              },
+              {
+                label: 'Withdrawn', borderColor: '#f87171',
+                data: [0, distributed * 0.25, distributed * 0.5, distributed * 0.75, distributed],
+                tension: 0.3, borderWidth: 2, pointRadius: 3, fill: false,
+                borderDash: [4, 3]
+              },
+              {
+                label: 'Active Supply', borderColor: '#34d399',
+                data: [50000, 50000 - distributed * 0.25, 50000 - distributed * 0.5, 50000 - distributed * 0.75, reserve],
+                tension: 0.3, borderWidth: 2.5, pointRadius: 3, fill: false
+              }
+            ]
+          },
+          options: {
+            ...baseOpts,
+            plugins: {
+              legend: { display: true, position: 'bottom', labels: { color: '#555', font: { size: 10 }, boxWidth: 12, padding: 12 } }
+            }
+          }
+        });
+      }
     }
 
     /* =========================
