@@ -253,6 +253,7 @@
         foodTickets: [],
         withdrawals: [],
         gardens: [],
+        sosAlerts: [],
         reserve: 50000
       };
 
@@ -278,6 +279,7 @@
         if (!db.foodTickets) db.foodTickets = [];
         if (!db.withdrawals) db.withdrawals = [];
         if (!db.gardens) db.gardens = [];
+        if (!db.sosAlerts) db.sosAlerts = [];
 
         return db;
 
@@ -469,12 +471,62 @@
       }
     }
 
+    function checkSOSBanner() {
+      const db = getDB();
+      const activeSOS = db.sosAlerts.filter(s => s.status === "active");
+      let banner = document.getElementById("globalSOSBanner");
+
+      if (activeSOS.length > 0 && currentUser) {
+        if (!banner) {
+          banner = document.createElement("div");
+          banner.id = "globalSOSBanner";
+          banner.style.cssText = [
+            "position:fixed","top:0","left:0","right:0","z-index:999",
+            "display:flex","align-items:center","justify-content:space-between",
+            "padding:10px 20px",
+            "background:linear-gradient(90deg,rgba(127,29,29,0.97),rgba(185,28,28,0.97))",
+            "border-bottom:1px solid rgba(239,68,68,0.6)",
+            "box-shadow:0 0 20px rgba(239,68,68,0.45)",
+            "font-family:'Inter',sans-serif",
+            "animation:alertGlow 2s ease-in-out infinite"
+          ].join(";");
+          document.body.appendChild(banner);
+        }
+        banner.innerHTML = `
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:16px">🚨</span>
+            <span style="font-size:11px;font-weight:700;letter-spacing:0.15em;color:#fecaca;text-transform:uppercase">
+              ${activeSOS.length} Active SOS Emergency${activeSOS.length > 1 ? 'ies' : ''} — Respond Now
+            </span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:10px;color:rgba(252,165,165,0.7);font-family:monospace">
+              ${activeSOS.length} alert${activeSOS.length > 1 ? 's' : ''} active
+            </span>
+            <button onclick="dismissSOSBanner()"
+              style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;padding:4px 12px;border-radius:6px;border:1px solid rgba(252,165,165,0.4);color:#fca5a5;background:transparent;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600;">
+              Dismiss
+            </button>
+          </div>`;
+      } else {
+        if (banner) banner.remove();
+      }
+    }
+
+    function dismissSOSBanner() {
+      const banner = document.getElementById("globalSOSBanner");
+      if (banner) banner.remove();
+    }
+
     function renderDashboard() {
       updateBanner();
+      checkSOSBanner();
 
       if (!currentUser) {
         let banner = document.getElementById("globalNgoBanner");
         if (banner) banner.remove();
+        let sosBanner = document.getElementById("globalSOSBanner");
+        if (sosBanner) sosBanner.remove();
         renderLogin();
         return;
       }
@@ -483,13 +535,16 @@
       if (currentUser.role === "worker") renderWorker();
       if (currentUser.role === "ngo") renderNGO();
       if (currentUser.role === "admin") renderAdmin();
+
+      // Start voice safety listener for all roles that have commands configured
+      startVoiceSafety();
     }
 
     /* =========================
        CITIZEN ENGINE
     ========================= */
     function switchCitizenTab(id) {
-      ['tab-overview', 'tab-waste', 'tab-garden', 'tab-food'].forEach(t => {
+      ['tab-overview', 'tab-waste', 'tab-garden', 'tab-food', 'tab-safety'].forEach(t => {
         const el = document.getElementById(t);
         const btn = document.querySelector(`[data-tab="${t}"]`);
         if (el) el.classList.toggle('hidden', t !== id);
@@ -541,6 +596,7 @@
         <button data-tab="tab-waste" onclick="switchCitizenTab('tab-waste')" class="px-5 py-3 text-xs uppercase tracking-widest font-bold border-b-2 border-transparent text-gray-500 hover:text-gray-300 transition-all">Upload Waste</button>
         <button data-tab="tab-garden" onclick="switchCitizenTab('tab-garden')" class="px-5 py-3 text-xs uppercase tracking-widest font-bold border-b-2 border-transparent text-gray-500 hover:text-gray-300 transition-all">Terrace Garden</button>
         <button data-tab="tab-food" onclick="switchCitizenTab('tab-food')" class="px-5 py-3 text-xs uppercase tracking-widest font-bold border-b-2 border-transparent text-gray-500 hover:text-gray-300 transition-all">Food Logistics</button>
+        <button data-tab="tab-safety" onclick="switchCitizenTab('tab-safety'); setTimeout(prefillVoiceInputs, 50);" class="px-5 py-3 text-xs uppercase tracking-widest font-bold border-b-2 border-transparent text-gray-500 hover:text-red-400 transition-all">🛡 Safety</button>
       </div>
 
       <!-- TAB: Overview -->
@@ -621,11 +677,48 @@
         }
         </div>
       </div>
+
+      <!-- TAB: Safety (SOS) -->
+      <div id="tab-safety" class="hidden">
+        <div class="max-w-2xl">
+
+          <!-- Voice Command Setup card -->
+          <div class="card p-8 rounded-xl border border-red-500/20 bg-black/30 mb-6">
+            <h3 class="text-sm font-bold uppercase tracking-widest mb-1" style="color:#ef4444">🛡 Voice Safety Setup</h3>
+            <p class="text-xs text-gray-500 font-mono mb-6">Configure your personal voice trigger words for stealth emergency activation.</p>
+            <label class="block text-[10px] text-gray-500 uppercase tracking-widest mb-2">SOS Trigger Word</label>
+            <input id="sosCmd" placeholder="e.g. help, save me" class="w-full p-3 mb-4 bg-black/60 border border-gray-700/80 rounded-lg text-sm font-mono outline-none focus:border-red-500 transition-colors"/>
+            <label class="block text-[10px] text-gray-500 uppercase tracking-widest mb-2">SAFE Word</label>
+            <input id="safeCmd" placeholder="e.g. i am safe" class="w-full p-3 mb-6 bg-black/60 border border-gray-700/80 rounded-lg text-sm font-mono outline-none focus:border-emerald-500 transition-colors"/>
+            <button onclick="saveVoiceCommands()" class="gold-btn w-full py-3 rounded-lg uppercase tracking-widest text-sm font-bold">Save Voice Commands</button>
+          </div>
+
+          <!-- SOS Action card -->
+          <div class="card p-8 rounded-xl border border-red-500/30 bg-black/30 mb-6">
+            <h3 class="text-sm font-bold uppercase tracking-widest mb-1" style="color:#ef4444">🚨 Emergency SOS</h3>
+            <p class="text-xs text-gray-500 font-mono mb-6">Silent SOS pings your live location every 3 s. Voice listener active when the dashboard is open.</p>
+            <div class="flex gap-3">
+              <button onclick="triggerSOS()" class="flex-1 py-4 rounded-xl uppercase tracking-widest text-sm font-bold transition-all" style="background:linear-gradient(135deg,#7f1d1d,#ef4444);color:#fff;box-shadow:0 0 24px rgba(239,68,68,0.35)" onmouseover="this.style.boxShadow='0 0 40px rgba(239,68,68,0.6)'" onmouseout="this.style.boxShadow='0 0 24px rgba(239,68,68,0.35)'">⚡ Activate SOS</button>
+              <button onclick="closeSOS()" class="flex-1 py-4 rounded-xl uppercase tracking-widest text-sm font-bold transition-all border border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10">✓ Mark Safe</button>
+            </div>
+          </div>
+
+          <!-- Nearby Active Alerts -->
+          <div class="card p-6 rounded-xl border border-gray-700/50 bg-black/30">
+            <h3 class="text-sm font-bold uppercase tracking-widest mb-4" style="color:#D4AF37">📡 Nearby Emergencies <span class="text-xs text-gray-600 font-mono">(300m–2km)</span></h3>
+            <div id="sos-nearby-list"><p class="text-xs text-gray-600 italic">Loading nearby alerts…</p></div>
+          </div>
+
+        </div>
+      </div>
     </div>
     <div class="pb-20"></div>
   </div>
   `;
       initializeMap();
+      // Start voice listener and populate nearby SOS list
+      startVoiceSafety();
+      loadNearbySOS();
     }
 
     let map = null;
@@ -2035,6 +2128,280 @@
           }
         });
       }
+    }
+
+    /* =========================
+       SOS SAFETY MODULE  (Security Level: HIGH)
+       Fixes: duplicate-word, min-length, pre-populate,
+              duplicate-SOS, GPS accuracy, rate-limit,
+              voice auto-restart, live user re-read,
+              path cap, self-join block, wrong-user close
+    ========================= */
+
+    /* ── Security constants ─────────────────────── */
+    const SOS_MIN_WORD_LEN   = 3;    // minimum trigger word length
+    const SOS_RATE_LIMIT_MS  = 10000;// 10 s between SOS triggers
+    const SOS_GPS_ACCURACY_M = 50;   // reject GPS fixes > 50 m accuracy
+    const SOS_PATH_MAX       = 200;  // rolling path buffer size
+    const SOS_VOICE_MAX_RETRY= 5;    // max voice-engine restarts
+
+    let _lastSOSTrigger = 0;         // timestamp of last SOS trigger
+    let _voiceRetries   = 0;         // voice restart counter
+
+    /* ── FIX #11: Pre-populate inputs + FIX #1 + #10: Validate ── */
+    function saveVoiceCommands() {
+      const sosInput  = document.getElementById("sosCmd");
+      const safeInput = document.getElementById("safeCmd");
+      if (!sosInput || !safeInput) { showToast("Open the Safety tab first."); return; }
+
+      const sosWord  = sosInput.value.trim().toLowerCase();
+      const safeWord = safeInput.value.trim().toLowerCase();
+
+      // FIX #10: minimum length
+      if (sosWord.length < SOS_MIN_WORD_LEN || safeWord.length < SOS_MIN_WORD_LEN) {
+        showToast(`Words must be at least ${SOS_MIN_WORD_LEN} characters.`); return;
+      }
+      // FIX #1: cannot be identical
+      if (sosWord === safeWord) {
+        showToast("SOS and SAFE words must be different."); return;
+      }
+
+      const db   = getDB();
+      const user = db.users.find(u => u.id === currentUser.id);
+      if (!user) { showToast("Session error — please log in again."); return; }
+
+      user.sosCommand  = sosWord;
+      user.safeCommand = safeWord;
+      saveDB(db);
+      // Restart voice engine with new words
+      _voiceRetries = 0;
+      startVoiceSafety();
+      showToast("✅ Voice commands saved & listener restarted.");
+    }
+
+    /* ── FIX #11: Pre-populate Safety tab inputs when tab opens ── */
+    function prefillVoiceInputs() {
+      const db   = getDB();
+      const user = db.users.find(u => u.id === currentUser.id);
+      if (!user) return;
+      const sosEl  = document.getElementById("sosCmd");
+      const safeEl = document.getElementById("safeCmd");
+      if (sosEl  && user.sosCommand)  sosEl.value  = user.sosCommand;
+      if (safeEl && user.safeCommand) safeEl.value = user.safeCommand;
+    }
+
+    /* ── FIX #2 + #4 + #3: triggerSOS with de-dup, rate-limit, GPS accuracy ── */
+    function triggerSOS() {
+      if (!currentUser) { showToast("Not logged in."); return; }
+
+      // FIX #4: rate-limit
+      const now = Date.now();
+      if (now - _lastSOSTrigger < SOS_RATE_LIMIT_MS) {
+        showToast("⏱ Rate limited — wait a few seconds before re-triggering."); return;
+      }
+
+      // FIX #2: reject duplicate active SOS
+      const dbCheck = getDB();
+      const existing = dbCheck.sosAlerts.find(
+        s => s.userId === currentUser.id && s.status === "active"
+      );
+      if (existing) { showToast("🚨 SOS already active. Say your SAFE word to cancel."); return; }
+
+      if (!navigator.geolocation) { showToast("Geolocation not supported."); return; }
+
+      // FIX #3: high-accuracy GPS with accuracy threshold
+      navigator.geolocation.getCurrentPosition(pos => {
+        if (pos.coords.accuracy > SOS_GPS_ACCURACY_M) {
+          showToast(`⚠ GPS accuracy ${Math.round(pos.coords.accuracy)} m > ${SOS_GPS_ACCURACY_M} m. Retrying…`);
+          // Retry once after 2 s
+          setTimeout(triggerSOS, 2000);
+          return;
+        }
+
+        _lastSOSTrigger = Date.now();
+
+        const db  = getDB();
+        const sos = {
+          id: Date.now(),
+          userId: currentUser.id,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: Math.round(pos.coords.accuracy),
+          status: "active",
+          createdAt: Date.now(),
+          responders: [],
+          path: []
+        };
+        db.sosAlerts.push(sos);
+        saveDB(db);
+
+        vibrateAlert();
+        startLiveTracking(sos.id);
+        showToast("🚨 SOS Activated — Silent Mode");
+
+      }, err => {
+        showToast("Location permission required for SOS.");
+        console.warn("SOS GPS error:", err.message);
+      }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 });
+    }
+
+    /* ── Stealth vibration pattern ─────────────────────────────── */
+    function vibrateAlert() {
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+    }
+
+    /* ── FIX #7: Live GPS tracking with rolling path buffer ──────── */
+    let _sosTrackingIds = {};
+    function startLiveTracking(sosId) {
+      if (_sosTrackingIds[sosId]) return;
+      _sosTrackingIds[sosId] = setInterval(() => {
+        navigator.geolocation.getCurrentPosition(pos => {
+          const db  = getDB();
+          const sos = db.sosAlerts.find(s => s.id === sosId);
+          if (!sos || sos.status !== "active") {
+            clearInterval(_sosTrackingIds[sosId]);
+            delete _sosTrackingIds[sosId];
+            return;
+          }
+          sos.lat = pos.coords.latitude;
+          sos.lng = pos.coords.longitude;
+          sos.path.push({ lat: sos.lat, lng: sos.lng, t: Date.now() });
+          // FIX #7: cap path to last SOS_PATH_MAX points
+          if (sos.path.length > SOS_PATH_MAX) {
+            sos.path = sos.path.slice(-SOS_PATH_MAX);
+          }
+          saveDB(db);
+        }, () => {}, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
+      }, 3000);
+    }
+
+    /* ── FIX #5 + #6: Voice engine with auto-restart + live user re-read ── */
+    let _voiceRec = null;
+    function startVoiceSafety() {
+      if (!currentUser) return;
+      if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) return;
+      if (_voiceRec) { try { _voiceRec.abort(); } catch(e){} _voiceRec = null; }
+
+      // FIX #6: read user fresh from DB at start time (updated again in onresult)
+      const db   = getDB();
+      const user = db.users.find(u => u.id === currentUser.id);
+      if (!user || !user.sosCommand || !user.safeCommand) return;
+
+      const SR  = window.SpeechRecognition || window.webkitSpeechRecognition;
+      _voiceRec = new SR();
+      _voiceRec.continuous     = true;
+      _voiceRec.interimResults = false;
+      _voiceRec.lang           = 'en-US';
+
+      _voiceRec.onresult = function(e) {
+        const text = e.results[e.results.length - 1][0].transcript.toLowerCase();
+        // FIX #6: re-read commands from DB (picks up updates without restart)
+        const liveDB   = getDB();
+        const liveUser = liveDB.users.find(u => u.id === currentUser.id);
+        if (!liveUser) return;
+        if (liveUser.sosCommand  && text.includes(liveUser.sosCommand))  triggerSOS();
+        if (liveUser.safeCommand && text.includes(liveUser.safeCommand)) closeSOS();
+      };
+
+      // FIX #5: graceful error — don't die permanently
+      _voiceRec.onerror = function(e) {
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') return; // mic denied — don't retry
+        console.warn("Voice recognition error:", e.error);
+      };
+
+      // FIX #5: auto-restart on end with retry cap
+      _voiceRec.onend = function() {
+        if (_voiceRetries < SOS_VOICE_MAX_RETRY && currentUser) {
+          _voiceRetries++;
+          setTimeout(() => {
+            try { if (_voiceRec) _voiceRec.start(); }
+            catch(e) { /* already started */ }
+          }, 500);
+        }
+      };
+
+      try { _voiceRec.start(); _voiceRetries = 0; }
+      catch(e) { console.warn("Voice start error:", e); }
+    }
+
+    /* ── FIX #9: closeSOS — only the SOS owner can close ─────────── */
+    function closeSOS() {
+      if (!currentUser) return;
+      const db  = getDB();
+      // FIX #9: strict owner check
+      const sos = db.sosAlerts.find(
+        s => s.userId === currentUser.id && s.status === "active"
+      );
+      if (!sos) { showToast("No active SOS found for your account."); return; }
+      sos.status   = "closed";
+      sos.closedAt = Date.now();
+      saveDB(db);
+      showToast("✅ Marked Safe — SOS closed.");
+    }
+
+    /* ── Haversine filter: nearby active alerts 300 m – 2 km ──────── */
+    function getNearbySOS(lat, lng) {
+      const db = getDB();
+      return db.sosAlerts.filter(s => {
+        if (s.status !== "active") return false;
+        const d = getDistance(lat, lng, s.lat, s.lng);
+        return d > 300 && d <= 2000;
+      });
+    }
+
+    /* ── FIX #8: joinRescue — block self-join ─────────────────────── */
+    function joinRescue(sosId) {
+      if (!currentUser) return;
+      const db  = getDB();
+      const sos = db.sosAlerts.find(s => s.id === sosId);
+      if (!sos) return;
+      // FIX #8: victim cannot join their own rescue
+      if (sos.userId === currentUser.id) {
+        showToast("You cannot join your own rescue."); return;
+      }
+      if (sos.responders.includes(currentUser.id)) {
+        showToast("You are already a responder."); return;
+      }
+      sos.responders.push(currentUser.id);
+      saveDB(db);
+      showToast("🤝 You joined the rescue!");
+      loadNearbySOS();
+    }
+
+    /* ── Render nearby SOS list into #sos-nearby-list ─────────────── */
+    function loadNearbySOS() {
+      const container = document.getElementById("sos-nearby-list");
+      if (!container) return;
+      if (!navigator.geolocation) {
+        container.innerHTML = '<p class="text-xs text-gray-600 italic">Geolocation unavailable.</p>';
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(pos => {
+        const list = getNearbySOS(pos.coords.latitude, pos.coords.longitude);
+        if (list.length === 0) {
+          container.innerHTML = '<p class="text-xs text-gray-600 italic">No active emergencies nearby. Area clear ✓</p>';
+          return;
+        }
+        container.innerHTML = list.map(s => {
+          const isSelf = s.userId === currentUser.id;
+          return `
+          <div class="p-4 mb-3 rounded-xl border ${isSelf ? 'border-yellow-500/40 bg-yellow-500/5' : 'border-red-500/40 bg-red-500/5'} flex justify-between items-center">
+            <div>
+              <div class="text-xs font-bold ${isSelf ? 'text-yellow-400' : 'text-red-400'} mb-1">
+                ${isSelf ? '⚠ Your Active SOS' : '🚨 Active Emergency'}
+              </div>
+              <div class="text-[10px] font-mono text-gray-500">Responders: ${s.responders.length}</div>
+              ${s.accuracy ? `<div class="text-[9px] font-mono text-gray-700">GPS ±${s.accuracy}m</div>` : ''}
+            </div>
+            ${isSelf
+              ? `<button onclick="closeSOS()" class="border border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 px-4 py-2 rounded-lg text-xs uppercase tracking-widest font-bold transition-all">Mark Safe</button>`
+              : `<button onclick="joinRescue(${s.id})" class="gold-btn px-4 py-2 rounded-lg text-xs uppercase tracking-widest font-bold">Join Rescue</button>`
+            }
+          </div>`;
+        }).join('');
+      }, () => {
+        container.innerHTML = '<p class="text-xs text-gray-600 italic">Location required to see nearby alerts.</p>';
+      }, { enableHighAccuracy: true, timeout: 6000, maximumAge: 5000 });
     }
 
     /* =========================
